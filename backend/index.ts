@@ -8,39 +8,24 @@ const llm = new ChatGoogleGenerativeAI({
   temperature: 0.2,
 });
 
-// Define tools
-const add = tool(({ a, b }) => a + b, {
-  name: "add",
-  description: "Add two numbers",
-  schema: z.object({
-    a: z.number().describe("First number"),
-    b: z.number().describe("Second number"),
-  }),
-});
-
-const multiply = tool(({ a, b }) => a * b, {
-  name: "multiply",
-  description: "Multiply two numbers",
-  schema: z.object({
-    a: z.number().describe("First number"),
-    b: z.number().describe("Second number"),
-  }),
-});
-
-const divide = tool(({ a, b }) => a / b, {
-  name: "divide",
-  description: "Divide two numbers",
-  schema: z.object({
-    a: z.number().describe("First number"),
-    b: z.number().describe("Second number"),
-  }),
-});
+const createFile= tool(
+  async({filePath, content})=>{
+    await Bun.write(filePath, content);
+    return `file created successfully at: ${filePath}`;
+  },
+  {
+  name:"create_file",
+  description: "Creates a new file at the specified path with the given content.",
+    schema: z.object({
+      filePath: z.string().describe("Absolute or relative path to the file"),
+      content: z.string().describe("Text content to write inside the file")
+    })
+  }
+)
 
 // Augment the LLM with tools
 const toolsByName = {
-  [add.name]: add,
-  [multiply.name]: multiply,
-  [divide.name]: divide,
+  [createFile.name]: createFile
 };
 const tools = Object.values(toolsByName);
 const llmWithTools = llm.bindTools(tools);
@@ -64,7 +49,7 @@ async function llmCall(state: z.infer<typeof MessagesState>) {
   return {
     messages: await llmWithTools.invoke([
       new SystemMessage(
-        "You are a helpful assistant tasked to do arithmetic operation with a set of numbers"
+        "You are a helpful assistant that answer any general question of the user and also tasked to create web apps if the user asks"
       ),
       ...state.messages,
     ]),
@@ -116,10 +101,22 @@ const agent = new StateGraph(MessagesState)
 
 // Invoke
 import { HumanMessage } from "@langchain/core/messages";
-const result = await agent.invoke({
-  messages: [new HumanMessage("add 45 and 8990")],
-});
 
-for (const message of result.messages) {
-  console.log(`[${message.getType()}]: ${message.text}`);
+let state = { messages: [] };
+
+while (true) {
+  const userInput:string | null = prompt();
+  // state.messages.push(new HumanMessage(userInput!));
+
+  const result = await agent.invoke({
+    ...state,
+    messages: [...state.messages, new HumanMessage(userInput)]
+  });
+
+  state.messages.push(...result.messages); 
+  // state.messages = result.messages; 
+  console.log("this is a state", state);
+  for (const message of result.messages) {
+    console.log(`[${message.getType()}]: ${message.text}`);
+  }
 }
