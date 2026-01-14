@@ -8,6 +8,7 @@ import { type BaseMessage } from "@langchain/core/messages";
 import { SystemMessage } from "@langchain/core/messages";
 import { isAIMessage, ToolMessage } from "@langchain/core/messages";
 import { HumanMessage } from "@langchain/core/messages";
+import { spawn } from "bun";
 
 //defining the llm
 const llm = new ChatGoogleGenerativeAI({
@@ -30,12 +31,27 @@ const createFile = tool(
   content: z.string().describe("Text content to write inside the file"),
 })
   },
-  
+)
+
+const serveProject = tool(
+  async({filePath})=>{
+    spawn(["sh", "-c", "bun add -g serve && serve"], { cwd: filePath });
+    const port = 3000;
+    return `Preview project at http://localhost:${port}`
+  },
+  {
+    name: "serve_project",
+    description: "Serves a static project folder and returns a preview URL",
+    schema: z.object({
+      filePath: z.string().describe("Absolute path to the project folder"),
+    }),
+  }
 )
 
 //abstracting the tools name
 const toolsByName = {
-  [createFile.name]: createFile
+  [createFile.name]: createFile,
+  [serveProject.name]:serveProject
 };
 const tools = Object.values(toolsByName)
 const llmWithTools = llm.bindTools(tools);
@@ -52,7 +68,7 @@ async function llmCall(state:z.infer<typeof MessageState>) {
   return{
     messages: await llmWithTools.invoke([
       new SystemMessage(
-        "You're helpful assistant tasked to answer any general users query and create the web apps as per user requirements and write those code by making a specific directory at first with some unique name related to project and then making the files inside that directory"
+        "You're helpful assistant tasked to answer any general users query and create the web apps as per user requirements and write those code by making a specific directory at first with some unique name related to project and then make the files inside that directory"
       ),
       ...state.messages,
     ]),
