@@ -9,10 +9,36 @@ import { SystemMessage } from "@langchain/core/messages";
 import { isAIMessage, ToolMessage } from "@langchain/core/messages";
 import { HumanMessage } from "@langchain/core/messages";
 import { spawn } from "bun";
+import Sandbox from "@e2b/code-interpreter";
+import 'dotenv/config'
+import express from "express";
+
+const sandbox = await Sandbox.create('8yn0aii31bapkinrarai')
+const host = sandbox.getHost(5173)
+console.log(`https://${host}`)
+
+// const app = express();
+// app.use(express.json())
+
+
+// app.post("/prompt", async (req, res)=>{
+//   const {prompt} = req.body;
+//   console.log("prompt by user:", prompt);
+//   try {
+
+//   } catch (error) {
+    
+//     console.error("Internal server error", error);
+//     return res.status(500).json({msg:"Shitty code!"})
+//   }
+  
+// })
+
+
 
 //defining the llm
 const llm = new ChatGoogleGenerativeAI({
-  model:"gemini-2.5-flash",
+  model:"gemini-2.5-flash-lite",
   temperature:1
 })
 
@@ -20,7 +46,15 @@ const llm = new ChatGoogleGenerativeAI({
 //defining the tools
 const createFile = tool(
   async({filePath, content})=>{
-    await Bun.write(filePath, content);
+    console.log("this is the filepath given to a tool:",filePath)
+    console.log("content given to a tool by llm", content)
+    // console.log("Type of filePath:",typeof filePath)
+    // console.log("Type of content:",typeof content)
+
+    // await Bun.write(filePath, content);
+    await sandbox.files.write(
+  filePath, content
+);
     return `File created successfully at ${filePath}`;
   },
 {
@@ -33,27 +67,19 @@ const createFile = tool(
   },
 )
 
-//tool to serve the static project (html, css & js)
-// const serveStaticProject = tool(
-//   async({filePath})=>{
-//     spawn(["sh", "-c", "bun add -g serve && serve"], { cwd: filePath });
-//     const port = 3000;
-//     return `Preview project at http://localhost:${port}`
-//   },
-//   {
-//     name: "serve_project",
-//     description: "Serves a static project folder and returns a preview URL",
-//     schema: z.object({
-//       filePath: z.string().describe("Absolute path to the project folder"),
-//     }),
-//   }
-// )
-
 //tool to run the shell commands
 const runShellCommand = tool(
-  async({command, cwd})=>{
-    spawn(["sh", "-c", command], { cwd });
-    return `Running: "${command}" in ${cwd ?? "current directory"}`;
+  async({command})=>{
+    console.log("checking the command in tool:", command);
+    console.log("checking the type of command:", typeof command)
+    // console.log("webex is trying to run the command in this dir:", cwd)
+    // spawn(["sh", "-c", command], { cwd });
+    await sandbox.commands.run(command,{
+      onStdout:(data)=>{
+        console.log("cmd out:",data)
+      }
+    })
+    return `Running: "${command}"}`;
   },
   {
     name:"run_shell_command",
@@ -83,10 +109,72 @@ const MessageState = z.object({
 
 //defining the model node
 async function llmCall(state:z.infer<typeof MessageState>) {
+  const appJsx = `
+import { useState } from 'react'
+import reactLogo from './assets/react.svg'
+import viteLogo from '/vite.svg'
+import './App.css'
+
+function App() {
+  const [count, setCount] = useState(0)
+
+  return (
+    <>
+      <div>
+        <a href="https://vite.dev" target="_blank">
+          <img src={viteLogo} className="logo" alt="Vite logo" />
+        </a>
+        <a href="https://react.dev" target="_blank">
+          <img src={reactLogo} className="logo react" alt="React logo" />
+        </a>
+      </div>
+      <h1>Vite + React</h1>
+      <div className="card">
+        <button onClick={() => setCount((count) => count + 1)}>
+          count is {count}
+        </button>
+        <p>
+          Edit <code>src/App.jsx</code> and save to test HMR
+        </p>
+      </div>
+      <p className="read-the-docs">
+        Click on the Vite and React logos to learn more
+      </p>
+    </>
+  )
+}
+
+export default App
+
+`
+
+const initialFileStructure = `
+    - /home/user/index.html
+    - /home/user/package.json
+    - /home/user/README.md
+    - /home/user/src/
+    - /home/user/src/App.jsx
+    - /home/user/src/App.css
+    - /home/user/src/index.css
+    - /home/user/src/main.jsx
+
+    App.jsx looks like this:
+    ${appJsx}
+`;
+
   return{
     messages: await llmWithTools.invoke([
       new SystemMessage(
-        "You're helpful assistant tasked to answer any general users query and create the web apps in react as per user requirements and write those code by making a specific directory at first with some unique name related to project and then make the files inside that directory. Use bun everywhere instead of npm. You have tools to run the shell commands, and you should create the project in react with vite. I'm using bun spawn to run the shell command to give the commands and current working directory to that tool. I want you to make the react project in vite by running all the needed commands with the help of tools and make the react app in a separate folder by naming it something related to project. Also after you make it go to the same project you made and run the dev script and give the preview link to the user. Make sure to go to same directory and give the project preview link after running the dev script. Try to make the site responsive and make it as beautiful as you can. Try to make it as beautiful, simple yet modern looking.You might also need to import  DONT USE NPM, USE BUN EVERYWHERE TO RUN AND DEVELOP THE PROJECT"
+        `
+    You are an expert coding agent. Your job is to write code in a sandbox environment.
+    You have access to the following tools:
+    - createFile
+    - runShellCommand
+    You will be given a prompt and you will need to write code to implement the prompt.
+    Make sure the website is pretty. 
+    This is what the initial file structure looks like:
+    ${initialFileStructure} Dont use npm run dev at any condition ut you should use npm install if theres a need for that. DOnt run npm install if you havent imported any dependency or packages, when the user request for normal css or js change you dont need to do npm install.
+`
       ),
       ...state.messages,
     ]),
@@ -133,7 +221,7 @@ const agent = new StateGraph(MessageState)
 .addEdge("toolNode", "llmCall")
 .compile();
 
-//defining the state variable to persist the context
+    //defining the state variable to persist the context
 let state= {messages:[]}
 
 //running the conversation in while loop
@@ -151,10 +239,13 @@ while(true){
     ...state,
     messages:[...state.messages, new HumanMessage(userInput)]
   });
-  console.log("checking the type of result",typeof result)
 
   state.messages.push(...result.messages);
   for (const message of result.messages){
     console.log(`[${message.getType()}]:${message.text}`)
   }
 }
+
+// app.listen(3000, () => {
+//   console.log("Server is running on port 3000");
+// });

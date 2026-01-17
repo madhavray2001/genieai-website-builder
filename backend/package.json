@@ -14,7 +14,9 @@
     "@langchain/core": "^0.3.78",
     "@langchain/google-genai": "^0.2.18",
     "@langchain/langgraph": "^0.4.9",
+    "@types/express": "^5.0.3",
     "dotenv": "^17.2.3",
+    "express": "^5.1.0",
     "langchain": "^1.0.0-alpha.8",
     "zod": "^4.1.12"
   }
