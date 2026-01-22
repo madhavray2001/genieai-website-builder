@@ -34,7 +34,7 @@ export default function HomePage() {
             </p>
 
             <div className="w-full max-w-2xl">
-              <PromptInput />
+              <PromptInput initialPrompt={''} type={'primary'} />
             </div>
 
             <p className="text-sm text-muted-foreground">Start with a simple idea. We’ll take it from there.</p>

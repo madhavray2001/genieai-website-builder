@@ -8,49 +8,49 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User{
-  id String @id @default(uuid())
-  username String @unique
-  password String
-  projects Project[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @default(now())
+model User {
+  id        String    @id @default(uuid())  
+  username  String    @unique
+  password  String
+  projects  Project[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @default(now())
+} 
+
+model Project {
+  id                  String                @id
+  title               String
+  initialPrompt       String
+  userId              String
+  user                User                  @relation(fields: [userId], references: [id])
+  conversationHistory ConversationHistory[]
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @default(now())
 }
 
-model Project{
-  id String @id @default(uuid())
-  title String
-  initialPrompt String
-  userId String
-  user User @relation(fields: [userId], references: [id])
-  conversaionHistory ConversationHistory[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @default(now())
-}
-
-model ConversationHistory{
-  id String @id @default(uuid())
+model ConversationHistory {
+  id        String           @id @default(uuid())
   projectId String
-  project Project @relation(fields: [projectId], references: [id])
-  type ConversationType
-  from MessageFrom
-  contents String
-  hidden Boolean @default(false)
-  toolCall ToolCall?
-  createdAt DateTime @default(now())
+  project   Project          @relation(fields: [projectId], references: [id])
+  type      ConversationType
+  from      MessageFrom
+  contents  String
+  hidden    Boolean          @default(false)
+  toolCall  ToolCall?
+  createdAt DateTime         @default(now())
 }
 
-enum ConversationType{
+enum ConversationType {
   TOOL_CALL
   TEXT_MESSAGE
 }
 
-enum MessageFrom{
+enum MessageFrom {
   USER
   ASSISTANT
 }
 
-enum ToolCall{
+enum ToolCall {
   READ_FILE
   WRITE_FILE
   DELETE_FILE

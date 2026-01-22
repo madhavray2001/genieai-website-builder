@@ -1,6 +1,7 @@
-import React from 'react'
+"use client"
+import React, { useEffect, useState } from 'react'
 import Image from 'next/image'
-import { Eye, CodeXml, ChevronLeft, ChevronRight, Monitor, Slash, RotateCw } from 'lucide-react';
+import { Eye, CodeXml, ChevronLeft, ChevronRight, Monitor, RotateCw } from 'lucide-react';
 import {
     Tabs,
     TabsContent,
@@ -10,7 +11,39 @@ import {
 import { PromptInput } from '@/components/prompt-input';
 
 
-const page = () => {
+const page =  ({params}) => {
+        const [projectUrl, setprojectUrl] = useState('');
+        const {id} = React.use(params) 
+
+    const [initialPrompt, setInitialPrompt] = useState('')
+    
+    useEffect(() => {
+        console.log("project id in the project page", id)
+
+        async function fetch2() {
+        const res = await fetch (`http://localhost:5000/api/project/${id}`)
+        const data = await res.json();
+       
+        console.log("data", data.data.initialPrompt)
+        const initialPromptFromDB = data.data.initialPrompt;
+        setInitialPrompt(initialPromptFromDB);
+
+         const message = await fetch(`http://localhost:5000/prompt`,{
+            method:'POST',
+            headers:{
+                'Content-Type':'application/json'
+            },
+            body:JSON.stringify({prompt:initialPromptFromDB})
+         })
+         const data2 = await message.json();
+         setprojectUrl(data2.projectUrl)
+         console.log("data2 by hitting /prompt api:", data2)
+        }
+        fetch2();
+    }, [])
+
+
+
     return (
         <div className='h-screen flex flex-col bg-black'>
             {/* navbar  */}
@@ -27,8 +60,8 @@ const page = () => {
             <div className='flex flex-1'>
                 {/* chatbot  */}
                 <div className='bg-black w-1/3'>
-                <div className='bg-black flex items-end h-full p-2'>
-                    <PromptInput />
+                <div className='bg-black flex items-end h-full p-2 text-white'>
+                    <PromptInput initialPrompt={initialPrompt} type={'secondary'} />
                 </div>
                 </div>
 
@@ -70,7 +103,7 @@ const page = () => {
                             </TabsContent>
                             <TabsContent value="preview" className='h-full'>
                                 <div className='text-white h-full flex justify-center items-center'>
-                                    View the preview here
+                                    <iframe src={projectUrl} title='iframe example' className='w-full h-full'></iframe>
                                 </div>
                             </TabsContent>
                         </div>
@@ -79,7 +112,7 @@ const page = () => {
             </div>
 
         </div>
-    )
+    )   
 }
 
 export default page

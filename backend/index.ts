@@ -13,6 +13,7 @@ import Sandbox from "@e2b/code-interpreter";
 import 'dotenv/config'
 import express from "express";
 import cors from 'cors';
+import projectRoute from "./routes/projectRoute";
 
 const sandbox = await Sandbox.create('8yn0aii31bapkinrarai')
 const host = sandbox.getHost(5173)
@@ -21,7 +22,7 @@ console.log(`https://${host}`)
 const app = express();
 app.use(express.json())
 app.use(cors());
-
+app.use('/api', projectRoute);
 
 app.post("/prompt", async (req, res) => {
   const { prompt } = req.body;
@@ -41,6 +42,7 @@ app.post("/prompt", async (req, res) => {
     for (const message of result.messages) {
       console.log(`[${message.getType()}]:${message.text}`)
     }
+    console.log(result.messages);
 
     return res.status(200).json({ msg: "Created successfully", projectUrl:`https://${host}` })
   } catch (error) {

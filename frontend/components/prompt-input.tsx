@@ -3,23 +3,46 @@
 import * as React from "react"
 import { Button } from "@/components/ui/button"
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group"
+import { useRouter } from "next/navigation"
 
-export function PromptInput() {
+export function PromptInput({initialPrompt, type}) {
   const [value, setValue] = React.useState("")
   const [submitting, setSubmitting] = React.useState(false)
   const [visibility, setVisibility] = React.useState<"public" | "private">("public")
   const fileRef = React.useRef<HTMLInputElement>(null)
+      const router = useRouter();
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    if (!value.trim()) return
+    if (type == 'primary') {
+    const id = crypto.randomUUID();
+    console.log("checking type of id", typeof id);
     setSubmitting(true)
     try {
-      console.log("[web-x] prompt submitted:", { value, visibility })
-      await new Promise((r) => setTimeout(r, 400))
-    } finally {
+      /*
+      send the prompt as the initial prompt to the database
+      */
+      const res = await fetch(`http://localhost:5000/api/project?id=${id}`,{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json'
+      },
+      body:JSON.stringify({initialPrompt:value})
+    })
+    const data = await res.json();
+    console.log("this is a res from server", data);
+    router.push(`/project/${id}`)
+
+    } catch (error) {
+      console.log('Error saving the initial req to the db', error);
+    }finally{
       setSubmitting(false)
     }
+    } else {
+      console.log("conversation continued...")
+    }
+
+
   }
 
   return (
