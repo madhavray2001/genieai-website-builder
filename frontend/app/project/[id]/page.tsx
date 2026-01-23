@@ -18,12 +18,18 @@ const page =  ({params}) => {
     const [initialPrompt, setInitialPrompt] = useState('')
     
     useEffect(() => {
+        const ws = new WebSocket(`ws://localhost:5000/?userId=d79d608e-0c3a-42f1-8bdd-b69fb1334d15`)
+
+        ws.onopen =(e)=>{
+            console.log("websocket connection established")
+        }
+
         console.log("project id in the project page", id)
 
         async function fetch2() {
         const res = await fetch (`http://localhost:5000/api/project/${id}`)
         const data = await res.json();
-       
+            
         console.log("data", data.data.initialPrompt)
         const initialPromptFromDB = data.data.initialPrompt;
         setInitialPrompt(initialPromptFromDB);
@@ -40,7 +46,7 @@ const page =  ({params}) => {
          console.log("data2 by hitting /prompt api:", data2)
         }
         fetch2();
-    }, [])
+    }, [id])
 
 
 

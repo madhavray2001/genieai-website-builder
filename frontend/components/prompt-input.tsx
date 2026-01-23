@@ -30,8 +30,7 @@ export function PromptInput({initialPrompt, type}) {
       body:JSON.stringify({initialPrompt:value})
     })
     const data = await res.json();
-    console.log("this is a res from server", data);
-    router.push(`/project/${id}`)
+      router.push(`/project/${id}`)
 
     } catch (error) {
       console.log('Error saving the initial req to the db', error);

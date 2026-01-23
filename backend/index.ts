@@ -14,19 +14,29 @@ import 'dotenv/config'
 import express from "express";
 import cors from 'cors';
 import projectRoute from "./routes/projectRoute";
+import { WebSocketServer } from "ws";
+import http from 'http';
 
-const sandbox = await Sandbox.create('8yn0aii31bapkinrarai')
-const host = sandbox.getHost(5173)
-console.log(`https://${host}`)
+// const sandbox = await Sandbox.create('8yn0aii31bapkinrarai')
+// const host = sandbox.getHost(5173)
+// console.log(`https://${host}`)
 
 const app = express();
 app.use(express.json())
 app.use(cors());
 app.use('/api', projectRoute);
+const server = http.createServer(app);
+
+const wss = new WebSocketServer({server});
+
+/*
+Establish the ws connection between the llm call and the client, probably from where the initial prompt is being sent to the below api
+*/
 
 app.post("/prompt", async (req, res) => {
   const { prompt } = req.body;
   console.log("prompt by user:", prompt);
+  /*
   try {
     //defining the state variable to persist the context
     let state = { messages: [] }
@@ -44,14 +54,31 @@ app.post("/prompt", async (req, res) => {
     }
     console.log(result.messages);
 
-    return res.status(200).json({ msg: "Created successfully", projectUrl:`https://${host}` })
+    // return res.status(200).json({ msg: "Created successfully", projectUrl:`https://${host}` })
+    return res.status(200).json({ msg: "Created successfully" })
+
   } catch (error) {
 
     console.error("Internal server error", error);
     return res.status(500).json({ msg: "Shitty code!" })
   }
+    */
+   return res.status(200).json({msg:"prompt given to LLM "})
 })
 
+const users = new Map<string, WebSocket>();
+
+wss.on('connection', (ws, req)=>{
+  console.log("ws connection established!")
+  console.log("socket:", ws);
+
+  users.set('asdfs', )
+})
+
+
+/*
+make a map and store the users; userId and projectId
+*/
 
 //defining the llm
 const llm = new ChatGoogleGenerativeAI({
@@ -65,13 +92,10 @@ const createFile = tool(
   async ({ filePath, content }) => {
     console.log("this is the filepath given to a tool:", filePath)
     console.log("content given to a tool by llm", content)
-    // console.log("Type of filePath:",typeof filePath)
-    // console.log("Type of content:",typeof content)
 
-    // await Bun.write(filePath, content);
-    await sandbox.files.write(
-      filePath, content
-    );
+    // await sandbox.files.write(
+    //   filePath, content
+    // );
     return `File created successfully at ${filePath}`;
   },
   {
@@ -89,13 +113,12 @@ const runShellCommand = tool(
   async ({ command }) => {
     console.log("checking the command in tool:", command);
     console.log("checking the type of command:", typeof command)
-    // console.log("webex is trying to run the command in this dir:", cwd)
-    // spawn(["sh", "-c", command], { cwd });
-    await sandbox.commands.run(command, {
-      onStdout: (data) => {
-        console.log("cmd out:", data)
-      }
-    })
+
+    // await sandbox.commands.run(command, {
+    //   onStdout: (data) => {
+    //     console.log("cmd out:", data)
+    //   }
+    // })
     return `Running: "${command}"}`;
   },
   {
@@ -240,6 +263,6 @@ const agent = new StateGraph(MessageState)
 
 
 
-app.listen(5000, () => {
+server.listen(5000, () => {
   console.log("Server is running on port 5000");
 });
