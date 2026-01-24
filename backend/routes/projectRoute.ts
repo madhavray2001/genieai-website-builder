@@ -8,8 +8,8 @@ router.post('/project', async (req, res) => {
     const userId = 'd79d608e-0c3a-42f1-8bdd-b69fb1334d15';
     const { initialPrompt } = req.body;
     const id = req.query.id;
-    console.log("this is the id in query", id);
-    console.log("prompt:", initialPrompt)
+    // console.log("this is the id in query", id);
+    // console.log("prompt:", initialPrompt)
 
     try {
         if (!initialPrompt) {

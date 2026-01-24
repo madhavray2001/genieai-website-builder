@@ -16,6 +16,7 @@ const page =  ({params}) => {
         const {id} = React.use(params) 
 
     const [initialPrompt, setInitialPrompt] = useState('')
+    const [messages, setMessages] = useState<string[]>([])
     
     useEffect(() => {
         const ws = new WebSocket(`ws://localhost:5000/?userId=d79d608e-0c3a-42f1-8bdd-b69fb1334d15`)
@@ -30,7 +31,7 @@ const page =  ({params}) => {
         const res = await fetch (`http://localhost:5000/api/project/${id}`)
         const data = await res.json();
             
-        console.log("data", data.data.initialPrompt)
+        // console.log("data", data.data.initialPrompt)
         const initialPromptFromDB = data.data.initialPrompt;
         setInitialPrompt(initialPromptFromDB);
 
@@ -39,17 +40,27 @@ const page =  ({params}) => {
             headers:{
                 'Content-Type':'application/json'
             },
-            body:JSON.stringify({prompt:initialPromptFromDB})
+            body:JSON.stringify({prompt:initialPromptFromDB, userId:'d79d608e-0c3a-42f1-8bdd-b69fb1334d15'})
          })
          const data2 = await message.json();
          setprojectUrl(data2.projectUrl)
          console.log("data2 by hitting /prompt api:", data2)
         }
+
         fetch2();
+
+        ws.onmessage=(e)=>{
+            console.log("streaming data from the server",e.data)
+            const data = JSON.parse(e.data);
+            
+            const handleAddMessage = (newMessage:string)=>{
+                setMessages(prevMessage => [...prevMessage, newMessage])
+            }
+            handleAddMessage(data);
+        }
     }, [id])
 
-
-
+    
     return (
         <div className='h-screen flex flex-col bg-black'>
             {/* navbar  */}
@@ -66,7 +77,9 @@ const page =  ({params}) => {
             <div className='flex flex-1'>
                 {/* chatbot  */}
                 <div className='bg-black w-1/3'>
-                <div className='bg-black flex items-end h-full p-2 text-white'>
+                {/* <div className='bg-red-400'>streaming here</div> */}
+                <div className='bg-black flex items-end h-full p-2 text-white flex-col'>
+                    <div className='bg-black flex-1 overflow-y-auto w-full text-white'>{messages}</div>
                     <PromptInput initialPrompt={initialPrompt} type={'secondary'} />
                 </div>
                 </div>
