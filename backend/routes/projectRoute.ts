@@ -1,13 +1,15 @@
 import express from "express";
 import { PrismaClient } from "../generated/prisma";
+import { runAgent } from "../runAgent";
+import { users } from "..";
 const router = express.Router();
 const prisma = new PrismaClient();
 
-router.post('/project', async (req, res) => {
+router.post('/project', async (req : express.Request, res: express.Response) => {
     const title = 'test project';
     const userId = 'd79d608e-0c3a-42f1-8bdd-b69fb1334d15';
     const { initialPrompt } = req.body;
-    const id = req.query.id;
+    const id = req.query.id as string;
     // console.log("this is the id in query", id);
     // console.log("prompt:", initialPrompt)
 
@@ -36,7 +38,39 @@ router.post('/project', async (req, res) => {
     }
 })
 
-router.get('/project/:id', async (req, res)=>{
+// router.post('/prompt', async(req: express.Request, res:express.Response)=>{
+//     // const title = 'test project';
+//     const userId = 'd79d608e-0c3a-42f1-8bdd-b69fb1334d15';
+//     const { prompt } = req.body;
+//     const projectId = req.query.id as string;
+
+//     try {
+//         if(!prompt){
+//             return res.status(404).json({
+//                 msg:"Invalid input"
+//             })
+//         }
+
+//         const conversation = await prisma.conversationHistory.create({
+//             data:{
+//                 projectId,
+//                 type:"TEXT_MESSAGE",
+//                 from: "USER",
+//                 contents:prompt
+//             }
+//         })
+//         const convo = conversation.contents;
+//         // runAgent(userId, projectId, convo, )
+//         return res.status(200).json({
+//             msg:"Prompt given successfully",
+//             conversation
+//         })
+//     } catch (error) {
+//         console.error("Internal server error", error);
+//     }
+// })
+
+router.get('/project/:id', async (req: express.Request, res: express.Response)=>{
     try {
         const {id} = req.params;
         const prompt = await prisma.project.findFirst({
@@ -53,3 +87,11 @@ router.get('/project/:id', async (req, res)=>{
 })
 
 export default router;
+
+/*
+user should be able to chat in the same project,
+new api? but why? 
+if i made new api:
+it should take that project id, project conversations, userId.
+
+*/

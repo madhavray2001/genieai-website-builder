@@ -11,9 +11,9 @@ import {
 import { PromptInput } from '@/components/prompt-input';
 
 
-const page =  ({params}) => {
+const page =  ({params, prompt}) => {
         const [projectUrl, setprojectUrl] = useState('');
-        const {id} = React.use(params) 
+        const {id} = React.use(params);
 
     const [initialPrompt, setInitialPrompt] = useState('')
     const [messages, setMessages] = useState<string[]>([])
@@ -35,7 +35,7 @@ const page =  ({params}) => {
         const initialPromptFromDB = data.data.initialPrompt;
         setInitialPrompt(initialPromptFromDB);
 
-         const message = await fetch(`http://localhost:5000/prompt`,{
+         const message = await fetch(`http://localhost:5000/prompt?projectId=${id}`,{ 
             method:'POST',
             headers:{
                 'Content-Type':'application/json'
@@ -49,15 +49,27 @@ const page =  ({params}) => {
 
         fetch2();
 
-        ws.onmessage=(e)=>{
-            console.log("streaming data from the server",e.data)
-            const data = JSON.parse(e.data);
-            
-            const handleAddMessage = (newMessage:string)=>{
-                setMessages(prevMessage => [...prevMessage, newMessage])
-            }
-            handleAddMessage(data);
-        }
+ws.onmessage = (e) => {
+  const data = JSON.parse(e.data);
+
+  switch (data.type) {
+    case "ai":
+      setMessages(prev => [...prev, `🤖 ${data.content}`]);
+      break;
+
+    case "tool_call":
+      setMessages(prev => [...prev, `🔧 Calling tool: ${data.name}`]);
+      break;
+
+    case "tool_result":
+      setMessages(prev => [...prev, `✅ ${data.content}`]);
+      break;
+
+    default:
+      console.log("Unknown:", data);
+  }
+};
+
     }, [id])
 
     
@@ -80,7 +92,7 @@ const page =  ({params}) => {
                 {/* <div className='bg-red-400'>streaming here</div> */}
                 <div className='bg-black flex items-end h-full p-2 text-white flex-col'>
                     <div className='bg-black flex-1 overflow-y-auto w-full text-white'>{messages}</div>
-                    <PromptInput initialPrompt={initialPrompt} type={'secondary'} />
+                    <PromptInput initialPrompt={initialPrompt} prompt={prompt} type={'secondary'} params={params}/>
                 </div>
                 </div>
 

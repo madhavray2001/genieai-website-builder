@@ -211,24 +211,56 @@ export async function runAgent(userId:string,projectId:string,conversationState:
     
     //     const userInput: string  = input;
     
-      const result =  await agent.invoke(
-          conversationState
-        );
-        console.log("checking all messages from llm", result.messages);
-        const toolCalls = result.messages[1].tool_calls[0].name;
-        console.log("ToolCalls::",toolCalls)
+// Run agent
+const result = await agent.invoke(conversationState);
 
-        const AIMessage = result.messages[3].content;
-        console.log("AI Message::", AIMessage)
-        client?.send(JSON.stringify(toolCalls))
-        client?.send(JSON.stringify(AIMessage))
+// ✅ Persist conversation history
+conversationState.messages.push(...result.messages);
 
-        
-        // console.log("This is a conversation state",conversationState);
-        // state.messages.push(...result.messages);
-        // for (const message of result.messages) {
-        //   console.log(`[${message.getType()}]:${message.text}`)
-        //   // console.log("These are the single message in result.message: ",message);
-        // }
+
+// ✅ Get ONLY the AI message that contains tool calls (probably earlier in sequence)
+const aiWithTools = [...result.messages]
+  .reverse()
+  .find(m => m._getType() === "ai" && m.tool_calls?.length);
+
+if (aiWithTools?.tool_calls?.length) {
+  for (const tc of aiWithTools.tool_calls) {
+    client?.send(JSON.stringify({
+      type: "tool_call",
+      name: tc.name,
+      args: tc.args
+    }));
+  }
 }
 
+// ✅ Send tool results
+const toolResults = result.messages.filter(m => m._getType() === "tool");
+for (const t of toolResults) {
+  client?.send(JSON.stringify({
+    type: "tool_result",
+    content: t.content
+  }));
+}
+
+// ✅ Get ONLY the final AI message (the one without tool calls)
+const finalAI = [...result.messages]
+  .reverse()
+  .find(m => m._getType() === "ai" && (!m.tool_calls || m.tool_calls.length === 0));
+
+if (finalAI) {
+  client?.send(JSON.stringify({
+    type: "ai",
+    content: finalAI.content
+  }));
+}
+
+
+        
+      }
+      
+      // console.log("This is a conversation state",conversationState);
+      // state.messages.push(...result.messages);
+      // for (const message of result.messages) {
+      //   console.log(`[${message.getType()}]:${message.text}`)
+      //   // console.log("These are the single message in result.message: ",message);
+      // }

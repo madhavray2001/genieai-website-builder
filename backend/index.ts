@@ -10,80 +10,138 @@ import { runAgent } from "./runAgent";
 import * as z from "zod";
 import { MessagesZodMeta } from "@langchain/langgraph";
 import { registry } from "@langchain/langgraph/zod";
+import { PrismaClient } from "./generated/prisma";
 
 const app = express();
 app.use(express.json())
 app.use(cors());
 app.use('/api', projectRoute);
 const server = http.createServer(app);
+const prisma = new PrismaClient();
 
-  const sandbox = await Sandbox.create('8yn0aii31bapkinrarai')
-  const host = sandbox.getHost(5173)
-  console.log(`https://${host}`)
+const sandbox = await Sandbox.create('8yn0aii31bapkinrarai')
+const host = sandbox.getHost(5173)
+console.log(`https://${host}`)
 
-const wss = new WebSocketServer({server});
-/*
-const globalStore = {userId: 
-                {
-                "projectId":{conversationState}
-                } 
-                }
-*/
+const wss = new WebSocketServer({ server });
+
 const MessageState = z.object({
   messages: z.array(z.custom<BaseMessage>()).register(registry, MessagesZodMeta),
   llmCalls: z.number().optional()
 })
 
-type ConversationState = z.infer<typeof MessageState>;
 
-type GlobalState = Map<string,ProjectState>
-type ProjectState = Map<string,ConversationState>
-// interface ConversationState {
-//   messages:[],
-//   llmCall:number
-// }
-const globalStore:GlobalState = new Map();
+type GlobalState = Map<string, ProjectState>
+type ProjectState = Map<string, ConversationState>
+type ConversationState = z.infer<typeof MessageState>;
+const globalStore: GlobalState = new Map();
 
 app.post("/prompt", async (req, res) => {
 
-  const { prompt, userId, projectId } = req.body;
+  const { prompt, userId } = req.body;
+  const projectId = req.query.projectId as string;
   console.log("prompt by user:", prompt);
 
-if (!globalStore.has(userId)) {
-  const projectState: ProjectState = new Map();
-  projectState.set(projectId, {
-    messages: [],
-    llmCalls: 0,
-  });
+  if (!globalStore.has(userId)) {
+    console.log("pushing the userId in the globalstore")
+    const projectState: ProjectState = new Map();
+    projectState.set(projectId, {
+      messages: [],
+      llmCalls: 0,
+    });
 
-  globalStore.set(userId, projectState);
-}
+    globalStore.set(userId, projectState);
+    console.log("checking globalstore", globalStore);
+  }
 
-let projectState = globalStore.get(userId);
-let conversationState: ConversationState = projectState?.get(projectId)!;
-conversationState.messages.push(new HumanMessage(prompt))
+  let projectState = globalStore.get(userId);
+  let conversationState: ConversationState = projectState?.get(projectId)!;
+  conversationState.messages.push(new HumanMessage(prompt))
+  console.log("checking global store with conversationState", globalStore)
 
-const client: WebSocket = users.get(userId)!;
-  
+  const client: WebSocket = users.get(userId)!;
+
   try {
 
-    runAgent(userId, projectId, conversationState, client, sandbox )
+    await runAgent(userId, projectId, conversationState, client, sandbox)
 
     // const ws = users.get(userId);
     // ws?.send(JSON.stringify({ type: "log", text: 'test message' }))
 
-    return res.status(200).json({ msg: "Created successfully", projectUrl:`https://${host}` })
+    return res.status(200).json({ msg: "Created successfully", projectUrl: `https://${host}`})
 
   } catch (error) {
 
     console.error("Internal server error", error);
     return res.status(500).json({ msg: "Shitty code!" })
   }
-  })
+})
 
-const users = new Map<string, WebSocket>();
 
-wss.on('connection', (ws, req)=>{
+app.post('/conversation', async (req: express.Request, res: express.Response) => {
+  // const title = 'test project';
+  const userId = 'd79d608e-0c3a-42f1-8bdd-b69fb1334d15';
+  const { prompt } = req.body;
+  const projectId = req.query.id as string;
+
+  try {
+    if (!prompt) {
+      return res.status(404).json({
+        msg: "Invalid input"
+      })
+    }
+
+    // const conversation = await prisma.conversationHistory.create({
+    //   data: {
+    //     projectId,
+    //     type: "TEXT_MESSAGE",
+    //     from: "USER",
+    //     contents: prompt
+    //   }
+    // })
+    // const convo = conversation.contents;
+    // --------------------------------------------------------
+    // if (!globalStore.has(userId)) {
+    //   const projectState: ProjectState = new Map();
+    //   projectState.set(projectId, {
+    //     messages: [],
+    //     llmCalls: 0,
+    //   });
+
+    //   globalStore.set(userId, projectState);
+    // }
+    // ----------------------------------------------------------------
+    if(!globalStore.has(userId)){
+      return res.status(400).json({msg:"user doesnt have access to this project", globalStore})
+    }
+
+    let projectState = globalStore.get(userId);
+    // 🔥 ADD THIS CHECK:
+if (!projectState || !projectState.has(projectId)) {
+    return res.status(404).json({
+        msg: "Project not found. Start a new conversation from /prompt first.",
+        userId,
+        projectId
+    })
+}
+    let conversationState: ConversationState = projectState?.get(projectId)!;
+    conversationState.messages.push(new HumanMessage(prompt))
+
+    const client: WebSocket = users.get(userId)!;
+
+    await runAgent(userId, projectId, conversationState, client, sandbox)
+    return res.status(200).json({
+      msg: "Prompt given successfully",
+      // conversation
+    })
+  } catch (error) {
+    console.error("Internal server error", error);
+  }
+})
+
+export const users = new Map<string, WebSocket>();
+
+wss.on('connection', (ws, req) => {
   console.log("ws connection established!")
   // console.log("socket:", ws);
 

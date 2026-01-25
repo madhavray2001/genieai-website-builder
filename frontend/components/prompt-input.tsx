@@ -1,27 +1,37 @@
 "use client"
 
 import * as React from "react"
+
 import { Button } from "@/components/ui/button"
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group"
-import { useRouter } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
 
-export function PromptInput({initialPrompt, type}) {
+interface PromptInputProps {
+  type: 'primary' | 'secondary'
+  initialPrompt?: string
+  prompt?: string
+  params?: any
+}
+
+export function PromptInput({initialPrompt, prompt, type, params}:PromptInputProps) {
   const [value, setValue] = React.useState("")
   const [submitting, setSubmitting] = React.useState(false)
   const [visibility, setVisibility] = React.useState<"public" | "private">("public")
+  
+  const para = useParams();
+  const projectId = para?.id;
+  
   const fileRef = React.useRef<HTMLInputElement>(null)
       const router = useRouter();
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    if (type == 'primary') {
     const id = crypto.randomUUID();
     console.log("checking type of id", typeof id);
+    if (type == 'primary') {
+      console.log("reached primary page");
     setSubmitting(true)
     try {
-      /*
-      send the prompt as the initial prompt to the database
-      */
       const res = await fetch(`http://localhost:5000/api/project?id=${id}`,{
       method:'POST',
       headers:{
@@ -38,7 +48,21 @@ export function PromptInput({initialPrompt, type}) {
       setSubmitting(false)
     }
     } else {
-      console.log("conversation continued...")
+      console.log("reached the second page");
+      console.log("reached to secondary phase!",projectId);
+      try {
+        const res = await fetch(`http://localhost:5000/conversation?id=${projectId}`,{
+          method:'POST',
+          headers:{
+            'Content-Type':'application/json'
+          },
+          body:JSON.stringify({prompt:value})
+        })
+        const data = await res.json();
+        console.log("data from prompt api", data.msg)
+      } catch (error) {
+        console.log('Error giving prompt', error);
+      }
     }
 
 
