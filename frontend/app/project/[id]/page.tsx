@@ -1,5 +1,5 @@
 "use client"
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import { Eye, CodeXml, ChevronLeft, ChevronRight, Monitor, RotateCw } from 'lucide-react';
 import {
@@ -17,8 +17,11 @@ const page =  ({params, prompt}) => {
 
     const [initialPrompt, setInitialPrompt] = useState('')
     const [messages, setMessages] = useState<string[]>([])
+    const hasFetched = useRef(false);
     
     useEffect(() => {
+        if(hasFetched.current) return;
+        hasFetched.current = true;
         const ws = new WebSocket(`ws://localhost:5000/?userId=d79d608e-0c3a-42f1-8bdd-b69fb1334d15`)
 
         ws.onopen =(e)=>{

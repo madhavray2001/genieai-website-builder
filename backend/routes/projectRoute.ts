@@ -87,11 +87,3 @@ router.get('/project/:id', async (req: express.Request, res: express.Response)=>
 })
 
 export default router;
-
-/*
-user should be able to chat in the same project,
-new api? but why? 
-if i made new api:
-it should take that project id, project conversations, userId.
-
-*/

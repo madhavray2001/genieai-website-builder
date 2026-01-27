@@ -216,6 +216,7 @@ const result = await agent.invoke(conversationState);
 
 // ✅ Persist conversation history
 conversationState.messages.push(...result.messages);
+conversationState.llmCalls = result.llmCalls;
 
 
 // ✅ Get ONLY the AI message that contains tool calls (probably earlier in sequence)

@@ -51,7 +51,7 @@ app.post("/prompt", async (req, res) => {
     });
 
     globalStore.set(userId, projectState);
-    console.log("checking globalstore", globalStore);
+    // console.log("checking globalstore", globalStore);
   }
 
   let projectState = globalStore.get(userId);
@@ -62,7 +62,7 @@ app.post("/prompt", async (req, res) => {
   const client: WebSocket = users.get(userId)!;
 
   try {
-
+    console.log("conversation state to the llm with initPrompt only:", conversationState)
     await runAgent(userId, projectId, conversationState, client, sandbox)
 
     // const ws = users.get(userId);
@@ -128,6 +128,9 @@ if (!projectState || !projectState.has(projectId)) {
     conversationState.messages.push(new HumanMessage(prompt))
 
     const client: WebSocket = users.get(userId)!;
+
+    console.log("conversation state to the llm with the follow up message:", conversationState)
+
 
     await runAgent(userId, projectId, conversationState, client, sandbox)
     return res.status(200).json({
