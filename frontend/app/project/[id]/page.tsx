@@ -22,7 +22,7 @@ const page =  ({params, prompt}) => {
     useEffect(() => {
         if(hasFetched.current) return;
         hasFetched.current = true;
-        const ws = new WebSocket(`ws://localhost:5000/?userId=d79d608e-0c3a-42f1-8bdd-b69fb1334d15`)
+        const ws = new WebSocket(`ws://localhost:5000/?userId=9cabe184-e4b9-4351-9b71-5737107d552b`)
 
         ws.onopen =(e)=>{
             console.log("websocket connection established")
@@ -43,7 +43,7 @@ const page =  ({params, prompt}) => {
             headers:{
                 'Content-Type':'application/json'
             },
-            body:JSON.stringify({prompt:initialPromptFromDB, userId:'d79d608e-0c3a-42f1-8bdd-b69fb1334d15'})
+            body:JSON.stringify({prompt:initialPromptFromDB, userId:'9cabe184-e4b9-4351-9b71-5737107d552b'})
          })
          const data2 = await message.json();
          setprojectUrl(data2.projectUrl)

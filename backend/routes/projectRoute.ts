@@ -7,7 +7,7 @@ const prisma = new PrismaClient();
 
 router.post('/project', async (req : express.Request, res: express.Response) => {
     const title = 'test project';
-    const userId = 'd79d608e-0c3a-42f1-8bdd-b69fb1334d15';
+    const userId = '9cabe184-e4b9-4351-9b71-5737107d552b';
     const { initialPrompt } = req.body;
     const id = req.query.id as string;
     // console.log("this is the id in query", id);
@@ -40,7 +40,7 @@ router.post('/project', async (req : express.Request, res: express.Response) => 
 
 // router.post('/prompt', async(req: express.Request, res:express.Response)=>{
 //     // const title = 'test project';
-//     const userId = 'd79d608e-0c3a-42f1-8bdd-b69fb1334d15';
+//     const userId = '9cabe184-e4b9-4351-9b71-5737107d552b';
 //     const { prompt } = req.body;
 //     const projectId = req.query.id as string;
 
