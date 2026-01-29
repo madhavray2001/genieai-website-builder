@@ -111,7 +111,7 @@ export async function runAgent(userId:string,projectId:string,conversationState:
       for (const toolCall of lastMessage.tool_calls ?? []) {
         const tool = toolsByName[toolCall.name];
         const observation = await tool?.invoke(toolCall);
-        result.push(observation);
+        result.push(observation!);
         // console.log("observation from toolNode", observation)
         // const ws = users.get(userId);
         client?.send(JSON.stringify(observation?.content))
@@ -152,6 +152,14 @@ const result = await agent.invoke(conversationState);
 conversationState.messages.push(...result.messages);
 conversationState.llmCalls = result.llmCalls;
 
+//lets send the human msg as well to the streams
+const humanMessages = result.messages.filter((m:BaseMessage) => m.getType()==='human');
+for (const human of humanMessages){
+  client?.send(JSON.stringify({
+    type:'human',
+    content:human.content
+  }))
+}
 
 // ✅ Get ONLY the AI message that contains tool calls (probably earlier in sequence)
 const aiWithTools = [...result.messages]
@@ -169,7 +177,7 @@ if (aiWithTools?.tool_calls?.length) {
 }
 
 // ✅ Send tool results
-const toolResults = result.messages.filter(m => m._getType() === "tool");
+const toolResults = result.messages.filter((m:BaseMessage) => m.getType() === "tool");
 for (const t of toolResults) {
   client?.send(JSON.stringify({
     type: "tool_result",

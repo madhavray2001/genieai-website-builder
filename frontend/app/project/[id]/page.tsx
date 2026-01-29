@@ -9,73 +9,145 @@ import {
     TabsTrigger,
 } from "@/components/ui/tabs"
 import { PromptInput } from '@/components/prompt-input';
+import HumanMsgBox from '@/components/HumanMsgBox';
+import AiMsgBox from '@/components/AiMsgBox';
+import { extractFilesFromMessages, FileNode } from '@/utils/extractFiles';
+import { FileTree } from '@/components/FileTree';
+import { CodeViewer } from '@/components/CodeViewer';
 
 
-const page =  ({params, prompt}) => {
-        const [projectUrl, setprojectUrl] = useState('');
-        const {id} = React.use(params);
+export type Message = {
+    type: 'human' | 'ai' | 'tool_call' | 'tool_result';
+    content: string;
+    toolCall?: any;
+}
 
-    const [initialPrompt, setInitialPrompt] = useState('')
-    const [messages, setMessages] = useState<string[]>([])
-    const hasFetched = useRef(false);
-    
+interface PageProps {
+    params: Promise<{ id: string }>;
+    prompt?: string;
+}
+
+interface ProjectResponse {
+    data: {
+        id: string,
+        initialPrompt: string,
+        userId: string
+    }
+}
+
+interface PromptResponse {
+    projectUrl: string,
+    msg: string
+}
+
+const page = ({ params, prompt }: PageProps) => {
+    const [projectUrl, setprojectUrl] = useState('');
+    const { id } = React.use(params);
+
+    const [initialPrompt, setInitialPrompt] = useState<string>('')
+    const [messages, setMessages] = useState<Message[]>([])
+    const hasFetched = useRef<boolean>(false);
+    const [fileTree, setFileTree] = useState<FileNode[]>([]);
+    const [selectedFile, setSelectedFile] = useState<FileNode | null>(null);
+
+    // When messages update, rebuild file tree
     useEffect(() => {
-        if(hasFetched.current) return;
+        const files = extractFilesFromMessages(messages);
+        setFileTree(files);
+    }, [messages]);
+
+
+    useEffect(() => {
+        if (hasFetched.current) return;
         hasFetched.current = true;
         const ws = new WebSocket(`ws://localhost:5000/?userId=9cabe184-e4b9-4351-9b71-5737107d552b`)
 
-        ws.onopen =(e)=>{
+        ws.onopen = (e: Event) => {
             console.log("websocket connection established")
         }
 
         console.log("project id in the project page", id)
 
         async function fetch2() {
-        const res = await fetch (`http://localhost:5000/api/project/${id}`)
-        const data = await res.json();
-            
-        // console.log("data", data.data.initialPrompt)
-        const initialPromptFromDB = data.data.initialPrompt;
-        setInitialPrompt(initialPromptFromDB);
+            const res = await fetch(`http://localhost:5000/api/project/${id}`)
+            const data: ProjectResponse = await res.json();
 
-         const message = await fetch(`http://localhost:5000/prompt?projectId=${id}`,{ 
-            method:'POST',
-            headers:{
-                'Content-Type':'application/json'
-            },
-            body:JSON.stringify({prompt:initialPromptFromDB, userId:'9cabe184-e4b9-4351-9b71-5737107d552b'})
-         })
-         const data2 = await message.json();
-         setprojectUrl(data2.projectUrl)
-         console.log("data2 by hitting /prompt api:", data2)
+            const initialPromptFromDB = data.data.initialPrompt;
+            setInitialPrompt(initialPromptFromDB);
+
+            const message = await fetch(`http://localhost:5000/prompt?projectId=${id}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ prompt: initialPromptFromDB, userId: '9cabe184-e4b9-4351-9b71-5737107d552b' })
+            })
+            const data2: PromptResponse = await message.json();
+            setprojectUrl(data2.projectUrl)
+            console.log("data2 by hitting /prompt api:", data2)
         }
 
         fetch2();
 
-ws.onmessage = (e) => {
-  const data = JSON.parse(e.data);
+        ws.onmessage = (e: MessageEvent) => {
+            const data = JSON.parse(e.data);
 
-  switch (data.type) {
-    case "ai":
-      setMessages(prev => [...prev, `🤖 ${data.content}`]);
-      break;
+            console.log("Received:", data);
 
-    case "tool_call":
-      setMessages(prev => [...prev, `🔧 Calling tool: ${data.name}`]);
-      break;
+            //   type: 'tool_call',           // ← From data.type
+            //   content: 'Tool-call: create_file',
+            //   toolCall: {                  // ← YOU ADD THIS (the whole data object)
+            //     type: "tool_call",
+            //     name: "create_file",
+            //     args: {
+            //       filePath: "/home/user/src/App.jsx",
+            //       content: "import React..."
+            //     }
+            //   }
+            // }
 
-    case "tool_result":
-      setMessages(prev => [...prev, `✅ ${data.content}`]);
-      break;
+            switch (data.type) {
+                case "human":
+                    setMessages(prev => [...prev, {
+                        type: 'human',
+                        content: data.content
+                    }]);
+                    break;
 
-    default:
-      console.log("Unknown:", data);
-  }
-};
+                case "ai":
+                    setMessages(prev => [...prev, {
+                        type: 'ai',
+                        content: data.content
+                    }]);
+                    break;
+
+                case "tool_call":
+                    console.log("Tool call args:", data.args);
+                    setMessages(prev => [...prev, {
+                        type: 'tool_call',
+                        content: `Tool-call: ${data.name}`,
+                        toolCall: data
+                    }]);
+                    break;
+
+                case "tool_result":
+                    setMessages(prev => [...prev, {
+                        type: 'tool_result',
+                        content: data.content
+                    }]);
+                    break;
+
+                default:
+                    console.log("Unknown:", data);
+            }
+        };
 
     }, [id])
 
-    
+    const humanMsg = messages.filter(m => m.type === 'human');
+    const aiMsg = messages.filter(m => m.type === 'ai');
+    // const toolCall = messages.filter(m=>m.type==='tool_call')
+
     return (
         <div className='h-screen flex flex-col bg-black'>
             {/* navbar  */}
@@ -89,14 +161,21 @@ ws.onmessage = (e) => {
                 />
             </div>
             {/* chatbot and preview  */}
+
             <div className='flex flex-1'>
                 {/* chatbot  */}
                 <div className='bg-black w-1/3'>
-                {/* <div className='bg-red-400'>streaming here</div> */}
-                <div className='bg-black flex items-end h-full p-2 text-white flex-col'>
-                    <div className='bg-black flex-1 overflow-y-auto w-full text-white'>{messages}</div>
-                    <PromptInput initialPrompt={initialPrompt} prompt={prompt} type={'secondary'} params={params}/>
-                </div>
+                    {/* <div className='bg-red-400'>streaming here</div> */}
+                    <div className='bg-black flex items-end h-full p-2 text-white flex-col'>
+                        {/* <div className='bg-black flex-1 overflow-y-auto w-full text-white'>{messages}</div> */}
+                        <div className='bg-black flex-1 overflow-y-auto w-full text-white'>
+                            <HumanMsgBox messages={humanMsg} />
+                            <AiMsgBox messages={aiMsg} />
+
+                        </div>
+
+                        <PromptInput initialPrompt={initialPrompt} prompt={prompt} type={'secondary'} params={params} />
+                    </div>
                 </div>
 
                 {/* preview container  */}
@@ -125,14 +204,31 @@ ws.onmessage = (e) => {
                             </div>
 
                             <div className='text-white'>
-                                 <RotateCw className='text-white w-4 h-4' />
+                                <RotateCw className='text-white w-4 h-4' />
                             </div>
 
                         </div>
                         <div className="previewSection h-full">
                             <TabsContent value="code" className='h-full'>
-                                <div className='text-white h-full flex justify-center items-center'>
+                                {/* <div className='text-white h-full flex justify-center items-center'>
                                     Code files here
+                                </div> */}
+                                <div className="flex h-screen">
+                                    {/* Left: File Tree */}
+                                    <div className="w-64 bg-gray-900 text-white overflow-y-auto">
+                                        <div className="p-4 border-b border-gray-700">
+                                            <h2 className="font-bold">Files</h2>
+                                        </div>
+                                        <FileTree
+                                            nodes={fileTree}
+                                            onFileClick={(file) => setSelectedFile(file)}
+                                        />
+                                    </div>
+
+                                    {/* Right: Monaco Editor */}
+                                    <div className="flex-1">
+                                        <CodeViewer file={selectedFile} />
+                                    </div>
                                 </div>
                             </TabsContent>
                             <TabsContent value="preview" className='h-full'>
@@ -146,7 +242,7 @@ ws.onmessage = (e) => {
             </div>
 
         </div>
-    )   
+    )
 }
 
 export default page

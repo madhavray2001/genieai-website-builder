@@ -36,14 +36,14 @@ type ProjectState = Map<string, ConversationState>
 type ConversationState = z.infer<typeof MessageState>;
 const globalStore: GlobalState = new Map();
 
-app.post("/prompt", async (req, res) => {
+app.post("/prompt", async (req:express.Request, res:express.Response) => {
 
   const { prompt, userId } = req.body;
   const projectId = req.query.projectId as string;
   console.log("prompt by user:", prompt);
 
   if (!globalStore.has(userId)) {
-    console.log("pushing the userId in the globalstore")
+    // console.log("pushing the userId in the globalstore")
     const projectState: ProjectState = new Map();
     projectState.set(projectId, {
       messages: [],
