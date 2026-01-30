@@ -110,12 +110,12 @@ Tool Result: File created successfully at /home/user/src/App.css
 ALL MESSAGES: [
   HumanMessage {
   "id": "ef11b1be-e16f-4552-8d12-2b06a09108e0",
-  "content": "create a simple puzzle game in react   ",
+  "content": "create a simple puzzle game in react",
   "additional_kwargs": {},
   "response_metadata": {}
 }, HumanMessage {
   "id": "6eb67f7c-5423-4e9f-b7f7-fd8e3350ea93",
-  "content": "create a simple puzzle game in react   ",
+  "content": "create a simple puzzle game in react",
   "additional_kwargs": {},
   "response_metadata": {}
 }, AIMessage {

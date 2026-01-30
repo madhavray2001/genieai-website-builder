@@ -4,7 +4,7 @@ import * as z from "zod";
 import { StateGraph, START, END } from "@langchain/langgraph";
 import { MessagesZodMeta } from "@langchain/langgraph";
 import { registry } from "@langchain/langgraph/zod";
-import { type BaseMessage } from "@langchain/core/messages";
+import { HumanMessage, type BaseMessage } from "@langchain/core/messages";
 import { SystemMessage } from "@langchain/core/messages";
 import { isAIMessage, ToolMessage } from "@langchain/core/messages";
 import Sandbox from "@e2b/code-interpreter";
@@ -14,7 +14,9 @@ import { systemPrompt } from "./systemPrompt";
 
 const MessageState = z.object({
   messages: z.array(z.custom<BaseMessage>()).register(registry, MessagesZodMeta),
-  llmCalls: z.number().optional()
+  llmCalls: z.number().optional(),
+  summary: z.string().optional(),
+  summariserLLMCalls:z.number().optional()
 })
 
 type State = z.infer<typeof MessageState>;
@@ -25,7 +27,11 @@ export async function runAgent(userId:string,projectId:string,conversationState:
       model: "gemini-2.0-flash-lite",
       temperature: 1
     })
-    
+
+      const summariserLLM = new ChatGoogleGenerativeAI({
+      model: "gemini-2.0-flash",
+      temperature: 0
+    })
     
     //defining the tools
     const CreateFileSchema =  z.object({
@@ -80,25 +86,31 @@ export async function runAgent(userId:string,projectId:string,conversationState:
     const tools = Object.values(toolsByName)
     const llmWithTools = llm.bindTools(tools);
     
-    const MessageState = z.object({
-      messages: z
-        .array(z.custom<BaseMessage>())
-        .register(registry, MessagesZodMeta),
-      llmCalls: z.number().optional(),
-    })
     
     //defining the model node
     async function llmCall(state: State) {
-      return {
-        messages: await llmWithTools.invoke([
-          new SystemMessage(systemPrompt),
-          ...state.messages,
-        ]),
-        
-        llmCalls: (state.llmCalls ?? 0) + 1,       
-      }
-    }
-    
+  const msgs: BaseMessage[] = [];
+
+  // Always start with ONE system message (combine prompt + summary if exists)
+  const systemContent = state.summary
+    ? `${systemPrompt}\n\nConversation summary so far: ${state.summary}`
+    : systemPrompt;
+  
+  msgs.push(new SystemMessage(systemContent));
+
+  // Add all messages from state (these should be HumanMessage and AIMessage only)
+  // After summarization, state.messages only contains recent human messages
+  // Before summarization, it contains full history
+  msgs.push(...state.messages);
+
+  const response = await llmWithTools.invoke(msgs);
+
+  return {
+    messages: [response],
+    llmCalls: (state.llmCalls ?? 0) + 1,
+  };
+}
+
     //define the tool node, finding the last message of llm if theres any tool call or no need to call the tool
     async function toolNode(state: State) {
       const lastMessage = state.messages.at(-1);
@@ -122,6 +134,7 @@ export async function runAgent(userId:string,projectId:string,conversationState:
     //Branching logic, shouldContinue or end!
     async function shouldContinue(state: State) {
       const lastMessage = state.messages.at(-1);
+      //
       if (lastMessage == null || !isAIMessage(lastMessage)) return END;
     
       //if the llm makes a tool call, then perform action
@@ -148,8 +161,33 @@ export async function runAgent(userId:string,projectId:string,conversationState:
 // Run agent
 const result = await agent.invoke(conversationState);
 
-// ✅ Persist conversation history
-conversationState.messages.push(...result.messages);
+const allMessages = [...conversationState.messages, ...result.messages];
+
+//calling summariserLLM to summarise the context
+if(allMessages.length >= 4){
+  const fullContextText = allMessages
+  .map(m => `${m._getType().toUpperCase()} MESSAGE:\n${m.content}\n`)
+.join('\n');
+
+  const summary = await summariserLLM.invoke([
+    new SystemMessage("Summarise the following conversation context breifly so that it will be easier for another llm to continue the work from right here, make sure it has enough context to start working or make the changes from this new summary context. Please also include the code and the file refernce in this summary, i think that is absolutely needed. keep the latest code and the file references in this sumary, so that llm can solve the bugs as well if there will be any. keep the code inside the file as it is. keep the latest code always but always keep the latest code."),
+    new HumanMessage(fullContextText)
+  ])
+
+  conversationState.summary = summary.content;
+
+  const lastUserMessage = [...allMessages].reverse().find(m=>m.getType()==='human') as HumanMessage
+
+  //keeping only last user message + summary
+  conversationState.messages=[
+    // new SystemMessage(summary.content),
+    new HumanMessage(lastUserMessage.content)
+  ]
+}
+
+
+// Persist conversation history
+// conversationState.messages.push(...result.messages);
 conversationState.llmCalls = result.llmCalls;
 
 //lets send the human msg as well to the streams
@@ -161,7 +199,7 @@ for (const human of humanMessages){
   }))
 }
 
-// ✅ Get ONLY the AI message that contains tool calls (probably earlier in sequence)
+// Get ONLY the AI message that contains tool calls (probably earlier in sequence)
 const aiWithTools = [...result.messages]
   .reverse()
   .find(m => m._getType() === "ai" && m.tool_calls?.length);
@@ -176,7 +214,7 @@ if (aiWithTools?.tool_calls?.length) {
   }
 }
 
-// ✅ Send tool results
+// Send tool results
 const toolResults = result.messages.filter((m:BaseMessage) => m.getType() === "tool");
 for (const t of toolResults) {
   client?.send(JSON.stringify({
@@ -185,7 +223,7 @@ for (const t of toolResults) {
   }));
 }
 
-// ✅ Get ONLY the final AI message (the one without tool calls)
+// Get ONLY the final AI message (the one without tool calls)
 const finalAI = [...result.messages]
   .reverse()
   .find(m => m._getType() === "ai" && (!m.tool_calls || m.tool_calls.length === 0));
@@ -195,9 +233,7 @@ if (finalAI) {
     type: "ai",
     content: finalAI.content
   }));
-}
-
-        
+}     
 }
       
       // console.log("This is a conversation state",conversationState);
@@ -206,3 +242,4 @@ if (finalAI) {
       //   console.log(`[${message.getType()}]:${message.text}`)
       //   // console.log("These are the single message in result.message: ",message);
       // }
+      
