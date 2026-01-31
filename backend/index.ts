@@ -57,14 +57,22 @@ app.post("/prompt", async (req:express.Request, res:express.Response) => {
   let projectState = globalStore.get(userId);
   let conversationState: ConversationState = projectState?.get(projectId)!;
   conversationState.messages.push(new HumanMessage(prompt))
-  console.log("checking global store with conversationState", globalStore)
+  // console.log("checking global store with conversationState", globalStore)
 
   const client: WebSocket = users.get(userId)!;
 
   try {
-    console.log("conversation state to the llm with initPrompt only:", conversationState)
+    // console.log("conversation state to the llm with initPrompt only:", conversationState)
     await runAgent(userId, projectId, conversationState, client, sandbox)
 
+      await prisma.conversationHistory.create({
+      data: {
+        projectId,
+        type: "TEXT_MESSAGE",
+        from: "USER",
+        contents: prompt
+      }
+    })
     // const ws = users.get(userId);
     // ws?.send(JSON.stringify({ type: "log", text: 'test message' }))
 
@@ -91,14 +99,14 @@ app.post('/conversation', async (req: express.Request, res: express.Response) =>
       })
     }
 
-    // const conversation = await prisma.conversationHistory.create({
-    //   data: {
-    //     projectId,
-    //     type: "TEXT_MESSAGE",
-    //     from: "USER",
-    //     contents: prompt
-    //   }
-    // })
+    await prisma.conversationHistory.create({
+      data: {
+        projectId,
+        type: "TEXT_MESSAGE",
+        from: "USER",
+        contents: prompt
+      }
+    })
     // const convo = conversation.contents;
     // --------------------------------------------------------
     // if (!globalStore.has(userId)) {
@@ -129,7 +137,7 @@ if (!projectState || !projectState.has(projectId)) {
 
     const client: WebSocket = users.get(userId)!;
 
-    console.log("conversation state to the llm with the follow up message:", conversationState)
+    // console.log("conversation state to the llm with the follow up message:", conversationState)
 
 
     await runAgent(userId, projectId, conversationState, client, sandbox)

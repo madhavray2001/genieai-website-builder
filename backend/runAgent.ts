@@ -11,13 +11,15 @@ import Sandbox from "@e2b/code-interpreter";
 import 'dotenv/config'
 import { WebSocketServer } from "ws";
 import { systemPrompt } from "./systemPrompt";
+import { PrismaClient } from "./generated/prisma";
+const prisma = new PrismaClient();
 
 const MessageState = z.object({
   messages: z.array(z.custom<BaseMessage>()).register(registry, MessagesZodMeta),
   llmCalls: z.number().optional(),
   summary: z.string().optional(),
   summariserLLMCalls:z.number().optional()
-})
+})  
 
 type State = z.infer<typeof MessageState>;
 
@@ -160,8 +162,27 @@ export async function runAgent(userId:string,projectId:string,conversationState:
     
 // Run agent
 const result = await agent.invoke(conversationState);
+// console.log("this is the log from conversationState",JSON.stringify(conversationState) +"\n"+"\n"+"\n");
+console.log("this is the result.messages::", result.messages);
 
-const allMessages = [...conversationState.messages, ...result.messages];
+// const allMessages = [...conversationState.messages, ...result.messages];
+const allMessages = result.messages;
+
+console.log("this is from allMessage:", allMessages)
+
+//getting the final ai response and saving it to db
+const finalAIResponse = [...allMessages].reverse().find(m=>m.getType()==='ai'&& (!m.tool_calls || m.tool_calls.length === 0));
+
+const aiResponseText = finalAIResponse?.content || ' ';
+
+await prisma.conversationHistory.create({
+  data:{
+    projectId,
+    type:"TEXT_MESSAGE",
+    from:'ASSISTANT',
+    contents:aiResponseText
+  }
+})
 
 //calling summariserLLM to summarise the context
 if(allMessages.length >= 4){
@@ -212,6 +233,8 @@ if (aiWithTools?.tool_calls?.length) {
       args: tc.args
     }));
   }
+
+  
 }
 
 // Send tool results
