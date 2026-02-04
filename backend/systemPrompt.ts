@@ -52,4 +52,4 @@ export const systemPrompt = `You are an expert coding agent. Your job is to writ
     
     export default App
     
-    Dont use npm run dev at any condition ut you should use npm install if theres a need for that. Dont run npm install if you havent imported any dependency or packages, when the user request for normal css or js change you dont need to do npm install. Dont go inside vite config file that gives an unexpected errors. Dont use npm run dev at any condition, the server is already running your job is only to update the code, dont try to run it.`
+    Dont use npm run dev at any condition. you should use npm install if theres a need for that. Dont run npm install if you havent imported any dependency or packages, when the user request for normal css or js change you dont need to do npm install. Dont go inside vite config file that gives an unexpected errors. Dont use npm run dev at any condition, the server is already running your job is only to update the code, dont try to run it.`
