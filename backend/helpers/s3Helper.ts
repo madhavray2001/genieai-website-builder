@@ -22,7 +22,7 @@ export async function saveProjectToS3(
 
     // Check if project directory exists and has files
     try {
-      const projectFiles = await sandbox.files.list('/home/user/project');
+      const projectFiles = await sandbox.files.list('/home/user');
       if (!projectFiles || projectFiles.length === 0) {
         console.log(`No files to save yet for ${projectId}`);
         return false;
@@ -37,13 +37,24 @@ export async function saveProjectToS3(
 
     await sandbox.commands.run(`mkdir -p ${tempDir}`);
 
-    const tarResult = await sandbox.commands.run(
-      `cd /home/user/project && tar -czf ${tarPath} --exclude='node_modules' --exclude='.git' --exclude='dist' --exclude='.next' . 2>&1 || echo "TAR_FAILED"`,
-      {
-        onStdout: (data) => console.log("TAR:", data),
-        onStderr: (data) => console.error("TAR stderr:", data)
-      }
-    );
+const tarResult = await sandbox.commands.run(
+  `cd /home/user && tar -czf ${tarPath} \
+    --exclude='node_modules' \
+    --exclude='.git' \
+    --exclude='dist' \
+    --exclude='.next' \
+    --exclude='build' \
+    --exclude='.npm' \
+    --exclude='.cache' \
+    --exclude='.bash_logout' \
+    --exclude='.bashrc' \
+    --exclude='.profile' \
+    . 2>&1 || echo "TAR_FAILED"`,
+  {
+    onStdout: (data) => console.log("TAR:", data),
+    onStderr: (data) => console.error("TAR stderr:", data)
+  }
+);
     
     if (tarResult.stdout.includes("TAR_FAILED")) {
       console.log(`TAR failed for ${projectId}`);
@@ -141,9 +152,9 @@ export async function loadProjectFromS3(
     await sandbox.files.write(tarPath, arrayBuffer);
 
     // Extract
-    await sandbox.commands.run(`mkdir -p /home/user/project`);
+    await sandbox.commands.run(`mkdir -p /home/user`);
     const extractResult = await sandbox.commands.run(
-      `cd /home/user/project && tar -xzf ${tarPath} 2>&1`,
+      `cd /home/user && tar -xzf ${tarPath} 2>&1`,
       {
         onStdout: (data) => console.log("UNTAR:", data),
         onStderr: (data) => console.error("UNTAR stderr:", data)
@@ -155,7 +166,7 @@ export async function loadProjectFromS3(
       return false;
     }
 
-    console.log(`Project extracted to /home/user/project`);
+    console.log(`Project extracted to /home/user`);
 
     await sandbox.commands.run(`rm -rf ${tempDir}`);
 

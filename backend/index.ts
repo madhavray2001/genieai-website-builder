@@ -171,7 +171,8 @@ app.post('/conversation', async (req: express.Request, res: express.Response) =>
     // console.log("conversation state to the llm with the follow up message:", conversationState)
 
 
-    await runAgent(userId, projectId, conversationState, client, sandbox)
+    const data = await runAgent(userId, projectId, conversationState, client, sandbox);
+    JSON.stringify(data.)
 
     //save to s3 after finishes
     await saveProject(projectId, userId);

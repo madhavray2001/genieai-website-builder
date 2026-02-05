@@ -59,18 +59,18 @@ export async function runAgent(userId: string, projectId: string, conversationSt
     async (input) => {
       const { content, filePath } = CreateFileSchema.parse(input);
 
-      // FORCE: All files MUST go to /home/user/project
+      // FORCE: All files MUST go to /home/user
       let fullPath: string;
 
-      if (filePath.startsWith('/home/user/project/')) {
+      if (filePath.startsWith('/home/user/')) {
         // Already has full path
         fullPath = filePath;
       } else if (filePath.startsWith('/')) {
         // Absolute path but not in project dir - REJECT or FIX
-        fullPath = `/home/user/project${filePath}`;
+        fullPath = `/home/user${filePath}`;
       } else {
         // Relative path - prepend project dir
-        fullPath = `/home/user/project/${filePath}`;
+        fullPath = `/home/user/${filePath}`;
       }
 
       // Create parent directory
@@ -115,19 +115,19 @@ export async function runAgent(userId: string, projectId: string, conversationSt
     async (input) => {
       const { command } = RunShellCommandSchema.parse(input);
 
-      // Always run commands in /home/user/project
+      // Always run commands in /home/user
       await sandbox.commands.run(command, {
-        cwd: '/home/user/project',  // ← Force working directory
+        cwd: '/home/user',  // ← Force working directory
         onStdout: (data) => {
           console.log("cmd out:", data)
         }
       })
 
-      return `Running: "${command}" in /home/user/project`;
+      return `Running: "${command}" in /home/user`;
     },
     {
       name: "run_shell_command",
-      description: "Runs a shell command in the project directory (/home/user/project). Commands like 'npm install' will run in the project folder.",
+      description: "Runs a shell command in the project directory (/home/user). Commands like 'npm install' will run in the project folder.",
       schema: RunShellCommandSchema,
     }
   )
@@ -223,12 +223,12 @@ export async function runAgent(userId: string, projectId: string, conversationSt
     const rootFiles = await sandbox.files.list('/');
     console.log('Root files:', rootFiles?.map(f => f.name));
 
-    // Check /home/user/project
+    // Check /home/user
     try {
-      const projectFiles = await sandbox.files.list('/home/user/project');
-      console.log(' /home/user/project files:', projectFiles?.map(f => f.name));
+      const projectFiles = await sandbox.files.list('/home/user');
+      console.log(' /home/user files:', projectFiles?.map(f => f.name));
     } catch (err) {
-      console.log(' /home/user/project does NOT exist');
+      console.log(' /home/user does NOT exist');
     }
 
   } catch (error) {
