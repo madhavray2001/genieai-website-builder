@@ -269,7 +269,7 @@ export async function runAgent(userId: string, projectId: string, conversationSt
       .join('\n');
 
     const summary = await summariserLLM.invoke([
-      new SystemMessage("Summarise the following conversation context breifly so that it will be easier for another llm to continue the work from right here, make sure it has enough context to start working or make the changes from this new summary context. Please also include the code and the file refernce in this summary, i think that is absolutely needed. keep the latest code and the file references in this sumary, so that llm can solve the bugs as well if there will be any. keep the code inside the file as it is. keep the latest code always but always keep the latest code."),
+      new SystemMessage("Summarise the following conversation context breifly so that it will be easier for another llm to continue the work from right here, make sure it has enough context to start working or make the changes from this new summary context. Please also include the code and the file reference in this summary, i think that is absolutely needed. keep the latest code and the file references in this sumary, so that llm can solve the bugs as well, if there will be any. keep the code inside the file as it is. keep the latest code always but always keep the latest code."),
       new HumanMessage(fullContextText)
     ])
 

@@ -5,18 +5,19 @@ import cors from 'cors';
 import projectRoute from "./routes/projectRoute";
 import { WebSocketServer } from "ws";
 import http from 'http';
-import Sandbox from "@e2b/code-interpreter";
 import { runAgent } from "./runAgent";
 import * as z from "zod";
 import { MessagesZodMeta } from "@langchain/langgraph";
 import { registry } from "@langchain/langgraph/zod";
 import { PrismaClient } from "./generated/prisma";
 import { getSandbox, saveProject } from "./sandboxManager";
+import userRoute from "./routes/userRoute"
 
 const app = express();
 app.use(express.json())
 app.use(cors());
 app.use('/api', projectRoute);
+app.use('/api', userRoute)
 const server = http.createServer(app);
 const prisma = new PrismaClient();
 
@@ -95,8 +96,8 @@ app.post("/prompt", async (req: express.Request, res: express.Response) => {
 
 app.post('/conversation', async (req: express.Request, res: express.Response) => {
   // const title = 'test project';
-  const userId = '9cabe184-e4b9-4351-9b71-5737107d552b';
-  const { prompt } = req.body;
+  // const userId = '9cabe184-e4b9-4351-9b71-5737107d552b';
+  const { prompt, userId } = req.body;
   const projectId = req.query.id as string;
 
   try {
@@ -172,7 +173,7 @@ app.post('/conversation', async (req: express.Request, res: express.Response) =>
 
 
     const data = await runAgent(userId, projectId, conversationState, client, sandbox);
-    JSON.stringify(data.)
+    // JSON.stringify(data.)
 
     //save to s3 after finishes
     await saveProject(projectId, userId);

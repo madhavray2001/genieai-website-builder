@@ -14,6 +14,7 @@ import AiMsgBox from '@/components/AiMsgBox';
 import { extractFilesFromMessages, FileNode } from '@/utils/extractFiles';
 import { FileTree } from '@/components/FileTree';
 import { CodeViewer } from '@/components/CodeViewer';
+import { useSession } from 'next-auth/react';
 
 
 export type Message = {
@@ -43,6 +44,8 @@ interface PromptResponse {
 const page = ({ params, prompt }: PageProps) => {
     const [projectUrl, setprojectUrl] = useState('');
     const { id } = React.use(params);
+    const {data:session, status} = useSession();
+    const userId = session?.user.id;
 
     const [initialPrompt, setInitialPrompt] = useState<string>('')
     const [messages, setMessages] = useState<Message[]>([])
@@ -60,7 +63,13 @@ const page = ({ params, prompt }: PageProps) => {
     useEffect(() => {
         if (hasFetched.current) return;
         hasFetched.current = true;
-        const ws = new WebSocket(`ws://localhost:5000/?userId=9cabe184-e4b9-4351-9b71-5737107d552b`)
+        // console.log("lets check the userId in the ws inside useEffect in id page", userId);
+        console.log("Status:", status);
+    console.log("UserId:", userId);
+    console.log("UserId type:", typeof userId);
+    console.log("WebSocket URL:", `ws://localhost:5000/?userId=${userId}`);
+        
+        const ws = new WebSocket(`ws://localhost:5000/?userId=${userId}`)
 
         ws.onopen = (e: Event) => {
             console.log("websocket connection established")
@@ -80,7 +89,7 @@ const page = ({ params, prompt }: PageProps) => {
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ prompt: initialPromptFromDB, userId: '9cabe184-e4b9-4351-9b71-5737107d552b' })
+                body: JSON.stringify({ prompt: initialPromptFromDB, userId })
             })
             const data2: PromptResponse = await message.json();
             setprojectUrl(data2.projectUrl)

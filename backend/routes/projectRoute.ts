@@ -1,28 +1,24 @@
 import express from "express";
 import { PrismaClient } from "../generated/prisma";
-import { runAgent } from "../runAgent";
-import { users } from "..";
 const router = express.Router();
 const prisma = new PrismaClient();
 
 router.post('/project', async (req : express.Request, res: express.Response) => {
-    const title = 'test project';
-    const userId = '9cabe184-e4b9-4351-9b71-5737107d552b';
-    const { initialPrompt } = req.body;
+    const { initialPrompt, userId } = req.body;
+    console.log("this is the intialPrompt", initialPrompt);
+    console.log("this is the userId", userId);
+
     const id = req.query.id as string;
-    // console.log("this is the id in query", id);
-    // console.log("prompt:", initialPrompt)
 
     try {
-        if (!initialPrompt) {
+        if (!initialPrompt || !userId) {
             return res.status(404).json({
-                msg: "Invalid input"
+                msg: "Invalid input - missing initialPrompt or userId"
             })
         }
         const project = await prisma.project.create({
             data: {
                 id,
-                title,
                 initialPrompt,
                 userId
             }

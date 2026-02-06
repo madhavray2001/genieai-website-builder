@@ -1,7 +1,41 @@
+"use client"
 import type React from "react"
 import { PromptInput } from "@/components/prompt-input"
+import { Navbar } from "@/components/navbar"
+import { useEffect } from "react"
+import { useSession } from "next-auth/react"
+import {useRouter } from "next/navigation"
 
 export default function HomePage() {
+  const {data:session, status} = useSession();
+  const router = useRouter();
+
+  useEffect(()=>{
+    if(status=== 'authenticated' && session.user.id){
+      const pending = sessionStorage.getItem('pendingProject')
+      if(pending){
+        const {projectId, initialPrompt} = JSON.parse(pending);
+        console.log("this is the intial prompt", initialPrompt);
+        sessionStorage.removeItem('pendingProject'); //cleaning up after extracting
+
+        fetch(`http://localhost:5000/api/project?id=${projectId}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ 
+            initialPrompt: initialPrompt,
+            userId:session.user.id })
+        })
+        .then(res=> res.json())
+        .then(()=>{
+          router.push(`/project/${projectId}`)
+        })
+        
+      }
+    }
+  },[status, session])
+
   return (
     <div
       className="relative min-h-screen overflow-x-hidden overflow-y-auto bg-background text-foreground"
@@ -22,6 +56,7 @@ export default function HomePage() {
       />
 
       <main>
+        <Navbar />
         <section className="grid min-h-[100svh] place-items-center px-6">
           <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-8 text-center">
             <h1 className="text-balance text-3xl font-black leading-tight tracking-tight md:text-4xl lg:text-5xl">

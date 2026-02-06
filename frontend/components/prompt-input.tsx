@@ -5,6 +5,7 @@ import * as React from "react"
 import { Button } from "@/components/ui/button"
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group"
 import { useParams, useRouter } from "next/navigation"
+import { signIn, useSession } from "next-auth/react"
 
 interface PromptInputProps {
   type: 'primary' | 'secondary'
@@ -13,50 +14,69 @@ interface PromptInputProps {
   params?: any
 }
 
-export function PromptInput({initialPrompt, prompt, type, params}:PromptInputProps) {
+export function PromptInput({ initialPrompt, prompt, type, params }: PromptInputProps) {
+  const { data: session, status } = useSession();
   const [value, setValue] = React.useState("")
   const [submitting, setSubmitting] = React.useState(false)
   const [visibility, setVisibility] = React.useState<"public" | "private">("public")
-  
+
   const para = useParams();
   const projectId = para?.id;
-  
+
   const fileRef = React.useRef<HTMLInputElement>(null)
-      const router = useRouter();
+  const router = useRouter();
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const id = crypto.randomUUID();
-    console.log("checking type of id", typeof id);
-    if (type == 'primary') {
-      console.log("reached primary page");
-    setSubmitting(true)
-    try {
-      const res = await fetch(`http://localhost:5000/api/project?id=${id}`,{
-      method:'POST',
-      headers:{
-        'Content-Type':'application/json'
-      },
-      body:JSON.stringify({initialPrompt:value})
-    })
-    const data = await res.json();
-      router.push(`/project/${id}`)
+    const userId = session?.user.id;
 
-    } catch (error) {
-      console.log('Error saving the initial req to the db', error);
-    }finally{
-      setSubmitting(false)
-    }
+    if (type == 'primary') {
+      //checking authentication first
+      if (status === "unauthenticated") {
+        //setting the prompt and projectId in the session storage, localStorage ma it persist forever, session storage ma tab close garesi khessiyo
+        sessionStorage.setItem('pendingProject', JSON.stringify({
+          projectId: id,
+          initialPrompt: value
+        }))
+        signIn();//it automatically redirect to the same page
+        return;
+      }
+
+      if (!userId) {
+        console.error("No userId in the session");
+        return;
+      }
+
+      console.log("reached primary page for userId", userId);
+      setSubmitting(true)
+
+      try {
+        const res = await fetch(`http://localhost:5000/api/project?id=${id}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ initialPrompt: value, userId })
+        })
+        const data = await res.json();
+        router.push(`/project/${id}`)
+
+      } catch (error) {
+        console.log('Error saving the initial req to the db', error);
+      } finally {
+        setSubmitting(false)
+      }
     } else {
       console.log("reached the second page");
-      console.log("reached to secondary phase!",projectId);
+      console.log("reached to secondary phase!", projectId);
       try {
-        const res = await fetch(`http://localhost:5000/conversation?id=${projectId}`,{
-          method:'POST',
-          headers:{
-            'Content-Type':'application/json'
+        const res = await fetch(`http://localhost:5000/conversation?id=${projectId}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
           },
-          body:JSON.stringify({prompt:value})
+          body: JSON.stringify({ prompt: value, userId})
         })
         const data = await res.json();
         console.log("data from prompt api", data.msg)
@@ -64,8 +84,6 @@ export function PromptInput({initialPrompt, prompt, type, params}:PromptInputPro
         console.log('Error giving prompt', error);
       }
     }
-
-
   }
 
   return (
