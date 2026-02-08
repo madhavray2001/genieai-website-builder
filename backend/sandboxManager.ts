@@ -4,6 +4,7 @@ import { loadProjectFromS3, saveProjectToS3 } from "./helpers/s3Helper";
 
 interface SandboxInfo {
   sandbox: Sandbox;
+  currentProjectId:string | null,
   lastAccessed: Date;
 }
 
@@ -12,22 +13,37 @@ const activeSandboxes = new Map<string, SandboxInfo>();
 const SANDBOX_TIMEOUT = 30 * 60 * 1000; //lets set the timeout for 30 minutes
 
 export async function getSandbox(projectId: string, userId: string): Promise<Sandbox> {
-  const sandboxKey = `${userId}:${projectId}`;
+  // const sandboxKey = `${userId}:${projectId}`;
 
   // Check if sandbox exists and is still fresh
-  const existing = activeSandboxes.get(sandboxKey);
+  const sandboxInfo = activeSandboxes.get(userId);
 
-  if (existing) {
-    const timeSinceLastAccess = Date.now() - existing.lastAccessed.getTime();
+  if (sandboxInfo) {
+    const timeSinceLastAccess = Date.now() - sandboxInfo.lastAccessed.getTime();
 
     if (timeSinceLastAccess < SANDBOX_TIMEOUT) {
-      console.log(`Reusing sandbox for ${projectId}`);
-      existing.lastAccessed = new Date();
-      return existing.sandbox;
+      console.log(`Reusing sandbox for ${userId}`);
+      // existing.lastAccessed = new Date();
+      // return existing.sandbox;
+
+      if(sandboxInfo.currentProjectId && sandboxInfo.currentProjectId !== projectId){
+        //now this means switching from one project to another
+        await saveProjectToS3(sandboxInfo.sandbox, userId, sandboxInfo.currentProjectId);
+
+        //clearing the sandbox workspace to run new project 
+        await sandboxInfo.sandbox.commands.run('rm -rf /home/user/*');
+        console.log("workspace cleared!!");
+
+        const loaded = await loadProjectFromS3(sandboxInfo.sandbox, userId, sandboxInfo.currentProjectId);
+      }
+      sandboxInfo.currentProjectId = projectId;
+      sandboxInfo.lastAccessed = new Date();
+      
+      return sandboxInfo.sandbox;
     }
   }
 
-  console.log(`Creating NEW sandbox for ${projectId}...`);
+  console.log(`Creating NEW sandbox for ${userId}...`);
 
   const sandbox = await Sandbox.create('8yn0aii31bapkinrarai', {
     timeoutMs: SANDBOX_TIMEOUT
@@ -43,8 +59,9 @@ export async function getSandbox(projectId: string, userId: string): Promise<San
   }
 
   // Store sandbox
-  activeSandboxes.set(sandboxKey, {
+  activeSandboxes.set(userId, {
     sandbox,
+    currentProjectId:projectId,
     lastAccessed: new Date()
   });
 
@@ -54,14 +71,14 @@ export async function getSandbox(projectId: string, userId: string): Promise<San
 
 
 export async function saveProject(projectId: string, userId: string): Promise<void> {
-  const sandboxKey = `${userId}:${projectId}`;
-  const info = activeSandboxes.get(sandboxKey);
+  // const sandboxKey = `${userId}:${projectId}`;
+  const sandboxInfo = activeSandboxes.get(userId);
 
-  if (!info) {
+  if (!sandboxInfo) {
     throw new Error("Sandbox not active");
   }
 
-  const saved = await saveProjectToS3(info.sandbox, userId, projectId);
+  const saved = await saveProjectToS3(sandboxInfo.sandbox, userId, projectId);
   // console.log(`Project ${projectId} saved to S3`);
   if (saved) {
     console.log(`Project ${projectId} saved to S3`);

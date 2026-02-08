@@ -2,41 +2,72 @@
 import type React from "react"
 import { PromptInput } from "@/components/prompt-input"
 import { Navbar } from "@/components/navbar"
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useSession } from "next-auth/react"
 import {useRouter } from "next/navigation"
+import { CardDemo } from "@/components/ProjectCard"
+import { projects } from "./UsersProject"
+
+interface Project{
+  id:string;
+  title:string;
+  initialPrompt:string;
+  createdAt: string;
+}
 
 export default function HomePage() {
   const {data:session, status} = useSession();
   const router = useRouter();
+  const [projects, setProjects] = useState<Project[]>([])
 
   useEffect(()=>{
-    if(status=== 'authenticated' && session.user.id){
-      const pending = sessionStorage.getItem('pendingProject')
-      if(pending){
-        const {projectId, initialPrompt} = JSON.parse(pending);
-        console.log("this is the intial prompt", initialPrompt);
-        sessionStorage.removeItem('pendingProject'); //cleaning up after extracting
-
-        fetch(`http://localhost:5000/api/project?id=${projectId}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ 
-            initialPrompt: initialPrompt,
-            userId:session.user.id })
-        })
-        .then(res=> res.json())
-        .then(()=>{
-          router.push(`/project/${projectId}`)
-        })
-        
+    const handlePendingProject = async ()=>{
+      if(status=== 'authenticated' && session.user.id){
+        const pending = sessionStorage.getItem('pendingProject')
+        if(pending){
+          const {projectId, initialPrompt} = JSON.parse(pending);
+          console.log("this is the intial prompt", initialPrompt);
+          sessionStorage.removeItem('pendingProject'); //cleaning up after extracting
+          try {
+            await fetch(`http://localhost:5000/api/project?id=${projectId}`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({ 
+                initialPrompt: initialPrompt,
+                userId:session.user.id })
+            })
+            router.push(`/project/${projectId}`)
+          } catch (error) {
+            console.error("Error creating project:", error)
+          }
+        }
       }
     }
+
+    const fetchProjects = async()=>{
+      if(status ==='authenticated' && session.user.id){
+        // setLoading(true)
+        try {
+          const res = await fetch (`http://localhost:5000/api/projects/${session.user.id}`)
+          const data = await res.json();
+          setProjects(data.projects || [])
+          console.log("fetching projects:", data.projects);
+          
+        } catch (error) {
+          console.error("Error fetching projects", error)
+        }
+      }
+    }
+
+    handlePendingProject();
+    fetchProjects();
+    
   },[status, session])
 
   return (
+    <div>
     <div
       className="relative min-h-screen overflow-x-hidden overflow-y-auto bg-background text-foreground"
       style={
@@ -76,6 +107,13 @@ export default function HomePage() {
           </div>
         </section>
       </main>
+      </div>
+      <div className="savedProjects flex m-8 gap-4">
+        {projects.map(project => (
+        <CardDemo key={project.id} id={project.id} title={project.title} />
+        ))}
+        
+      </div>
     </div>
   )
 }

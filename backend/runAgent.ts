@@ -11,6 +11,7 @@ import Sandbox from "@e2b/code-interpreter";
 import 'dotenv/config'
 import { systemPrompt } from "./systemPrompt";
 import { PrismaClient } from "./generated/prisma";
+import { ChatAnthropic } from "@langchain/anthropic";
 
 const prisma = new PrismaClient();
 
@@ -29,6 +30,11 @@ export async function runAgent(userId: string, projectId: string, conversationSt
     model: "gemini-2.5-flash-lite",
     temperature: 1
   })
+
+//   const llm = new ChatAnthropic({
+//   model: "claude-sonnet-4-5-20250929",
+//   temperature: 0,
+// });
 
   const summariserLLM = new ChatGoogleGenerativeAI({
     model: "gemini-2.0-flash",
@@ -235,7 +241,7 @@ export async function runAgent(userId: string, projectId: string, conversationSt
     console.log(' Error checking files:', error);
   }
   // console.log("this is the log from conversationState",JSON.stringify(conversationState) +"\n"+"\n"+"\n");
-  // console.log("this is the result.messages::", result.messages);
+  console.log("this is the result.messages::", result.messages);
 
   // const allMessages = [...conversationState.messages, ...result.messages];
   const allMessages = result.messages;

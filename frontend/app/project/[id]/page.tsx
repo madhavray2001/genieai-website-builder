@@ -27,7 +27,7 @@ interface PageProps {
     params: Promise<{ id: string }>;
     prompt?: string;
 }
-
+ 
 interface ProjectResponse {
     data: {
         id: string,
@@ -42,7 +42,7 @@ interface PromptResponse {
 }
 
 const page = ({ params, prompt }: PageProps) => {
-    const [projectUrl, setprojectUrl] = useState('');
+    const [projectUrl, setprojectUrl] = useState(null);
     const { id } = React.use(params);
     const {data:session, status} = useSession();
     const userId = session?.user.id;
@@ -63,11 +63,6 @@ const page = ({ params, prompt }: PageProps) => {
     useEffect(() => {
         if (hasFetched.current) return;
         hasFetched.current = true;
-        // console.log("lets check the userId in the ws inside useEffect in id page", userId);
-        console.log("Status:", status);
-    console.log("UserId:", userId);
-    console.log("UserId type:", typeof userId);
-    console.log("WebSocket URL:", `ws://localhost:5000/?userId=${userId}`);
         
         const ws = new WebSocket(`ws://localhost:5000/?userId=${userId}`)
 
@@ -77,26 +72,41 @@ const page = ({ params, prompt }: PageProps) => {
 
         console.log("project id in the project page", id)
 
-        async function fetch2() {
-            const res = await fetch(`http://localhost:5000/api/project/${id}`)
-            const data: ProjectResponse = await res.json();
+        async function initializeProject() {
 
-            const initialPromptFromDB = data.data.initialPrompt;
-            setInitialPrompt(initialPromptFromDB);
+            try {
+                const loadedProject = sessionStorage.getItem('loadedProject');
 
-            const message = await fetch(`http://localhost:5000/prompt?projectId=${id}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ prompt: initialPromptFromDB, userId })
-            })
-            const data2: PromptResponse = await message.json();
-            setprojectUrl(data2.projectUrl)
-            console.log("data2 by hitting /prompt api:", data2)
+                if(loadedProject){
+                    const data = JSON.parse(loadedProject);
+                    setprojectUrl(data.projectUrl);
+                    sessionStorage.removeItem('loadedProject');
+                }
+                else{
+                    const res = await fetch(`http://localhost:5000/api/project/${id}`)
+                    const data: ProjectResponse = await res.json();
+        
+                    const initialPromptFromDB = data.data.initialPrompt;
+                    setInitialPrompt(initialPromptFromDB);
+        
+                    const message = await fetch(`http://localhost:5000/prompt?projectId=${id}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ prompt: initialPromptFromDB, userId })
+                    })
+                    const data2: PromptResponse = await message.json();
+                    setprojectUrl(data2.projectUrl)
+                    console.log("data2 by hitting /prompt api:", data2)
+                }
+            } catch (error) {
+                
+            }
+
         }
 
-        fetch2();
+        initializeProject();
 
         ws.onmessage = (e: MessageEvent) => {
             const data = JSON.parse(e.data);

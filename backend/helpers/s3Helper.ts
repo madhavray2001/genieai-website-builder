@@ -37,8 +37,8 @@ export async function saveProjectToS3(
 
     await sandbox.commands.run(`mkdir -p ${tempDir}`);
 
-const tarResult = await sandbox.commands.run(
-  `cd /home/user && tar -czf ${tarPath} \
+    const tarResult = await sandbox.commands.run(
+    `cd /home/user && tar -czf ${tarPath} \
     --exclude='node_modules' \
     --exclude='.git' \
     --exclude='dist' \
@@ -50,10 +50,10 @@ const tarResult = await sandbox.commands.run(
     --exclude='.bashrc' \
     --exclude='.profile' \
     . 2>&1 || echo "TAR_FAILED"`,
-  {
+    {
     onStdout: (data) => console.log("TAR:", data),
     onStderr: (data) => console.error("TAR stderr:", data)
-  }
+    }
 );
     
     if (tarResult.stdout.includes("TAR_FAILED")) {
