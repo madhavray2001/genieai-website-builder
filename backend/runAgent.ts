@@ -31,10 +31,10 @@ export async function runAgent(userId: string, projectId: string, conversationSt
     temperature: 1
   })
 
-//   const llm = new ChatAnthropic({
-//   model: "claude-sonnet-4-5-20250929",
-//   temperature: 0,
-// });
+  //   const llm = new ChatAnthropic({
+  //   model: "claude-sonnet-4-5-20250929",
+  //   temperature: 0,
+  // });
 
   const summariserLLM = new ChatGoogleGenerativeAI({
     model: "gemini-2.0-flash",
@@ -63,6 +63,12 @@ export async function runAgent(userId: string, projectId: string, conversationSt
   // )
   const createFile = tool(
     async (input) => {
+
+      // Add validation
+      if (!input.filePath || input.filePath.trim() === '') {
+        throw new Error("filePath is required and cannot be empty");
+      }
+
       const { content, filePath } = CreateFileSchema.parse(input);
 
       // FORCE: All files MUST go to /home/user
@@ -154,7 +160,19 @@ export async function runAgent(userId: string, projectId: string, conversationSt
 
     // Always start with ONE system message (combine prompt + summary if exists)
     const systemContent = state.summary
-      ? `${systemPrompt}\n\nConversation summary so far: ${state.summary}`
+      ? `${systemPrompt}
+
+    ## CONTEXT FROM PREVIOUS CONVERSATION:
+    ${state.summary}
+
+    ## IMPORTANT:
+    The above context contains the COMPLETE current state of all files. When the user asks for changes:
+    1. Read the current code from the context above
+    2. Make ONLY the specific changes requested
+    3. Keep everything else exactly the same
+    4. Use create_file to write the COMPLETE updated file (not just the changed parts)
+
+    The user is now making a follow-up request below.`
       : systemPrompt;
 
     msgs.push(new SystemMessage(systemContent));
@@ -163,6 +181,7 @@ export async function runAgent(userId: string, projectId: string, conversationSt
     // After summarization, state.messages only contains recent human messages
     // Before summarization, it contains full history
     msgs.push(...state.messages);
+
 
     const response = await llmWithTools.invoke(msgs);
 
@@ -177,7 +196,7 @@ export async function runAgent(userId: string, projectId: string, conversationSt
     const lastMessage = state.messages.at(-1);
 
     if (lastMessage == null || !isAIMessage(lastMessage)) {
-      return { message: [] };
+      return { messages: [] };
     }
 
     const result: ToolMessage[] = [];
@@ -192,32 +211,58 @@ export async function runAgent(userId: string, projectId: string, conversationSt
     return { messages: result }
   }
 
-  //Branching logic, shouldContinue or end!
-  async function shouldContinue(state: State) {
-    const lastMessage = state.messages.at(-1);
-    //
-    if (lastMessage == null || !isAIMessage(lastMessage)) return END;
+  //adding a node to give the final response to the user
+  async function finalNode(state: State) {
+    const llmText = await llm.invoke([
+      new SystemMessage("Summarize what you have done. Speak directly to the user. No tools. No code. Just a short final message. Also if the message contains summary then you need to understand that the user is following up in the chat and you need to give the response to that follow up as well"),
+      ...state.messages
+    ]);
 
-    //if the llm makes a tool call, then perform action
-    if (lastMessage.tool_calls?.length) {
-      return "toolNode"
+    return {
+      messages: [llmText]
+    };
+  }
+
+  async function shouldContinue(state: State) {
+    const last = state.messages.at(-1);
+
+    if (!last || !isAIMessage(last)) return END;
+
+    // MODEL WANTS TO RUN A TOOL
+    if (last.tool_calls && last.tool_calls.length > 0) {
+      return "toolNode";
     }
-    //otherwise, we stop (reply to the user)
-    return END;
+
+    // CHECK IF CONTENT IS MEANINGFUL
+    const text =
+      typeof last.content === "string"
+        ? last.content.trim()
+        : Array.isArray(last.content)
+          ? last.content.map(c => c.text || "").join("").trim()
+          : "";
+
+    const isMeaningful = text.length > 0;
+
+    // EMPTY RESPONSE = TRY AGAIN (limit: 4)
+    if (!isMeaningful && (state.llmCalls ?? 0) < 4) {
+      return "llmCall";
+    }
+
+    //    NO TOOL CALLS + MEANINGFUL = FINAL
+    return "finalNode";
   }
 
   //building the agent or lets say the graph
   const agent = new StateGraph(MessageState)
     .addNode("llmCall", llmCall)
     .addNode("toolNode", toolNode)
+    .addNode("finalNode", finalNode)
     .addEdge(START, "llmCall")
-    .addConditionalEdges("llmCall", shouldContinue, ["toolNode", END])
+    .addConditionalEdges("llmCall", shouldContinue, ["toolNode", "llmCall", "finalNode"])
     .addEdge("toolNode", "llmCall")
+    // .addEdge("toolNode", "finalNode")
+    .addEdge("finalNode", END)
     .compile();
-
-  // let state = { messages: [] }
-
-  //     const userInput: string  = input;
 
   // Run agent
   const result = await agent.invoke(conversationState);
@@ -242,14 +287,27 @@ export async function runAgent(userId: string, projectId: string, conversationSt
   }
   // console.log("this is the log from conversationState",JSON.stringify(conversationState) +"\n"+"\n"+"\n");
   console.log("this is the result.messages::", result.messages);
+  console.log("Number of llm calls", result.llmCalls);
 
   // const allMessages = [...conversationState.messages, ...result.messages];
   const allMessages = result.messages;
+  console.log("Length of all messages is:", allMessages.length)
 
   // console.log("this is from allMessage:", allMessages)
 
   //getting the final ai response and saving it to db
-  const finalAIResponse = [...allMessages].reverse().find(m => m.getType() === 'ai' && (!m.tool_calls || m.tool_calls.length === 0));
+  // const finalAIResponse = [...allMessages].reverse().find(m => m.getType() === 'ai' && (!m.tool_calls || m.tool_calls.length === 0));
+  const finalAIResponse = [...result.messages]
+    .reverse()
+    .find(m =>
+      m._getType() === "ai" &&
+      (!m.tool_calls || m.tool_calls.length === 0) &&
+      (
+        typeof m.content === "string"
+          ? m.content.trim().length > 0
+          : Array.isArray(m.content) && m.content.some(c => c.text?.trim().length > 0)
+      )
+    );
 
   // const aiResponseText = finalAIResponse?.content || ' ';
   //Convert content to string (handle both string and array formats)
@@ -269,25 +327,75 @@ export async function runAgent(userId: string, projectId: string, conversationSt
   })
 
   //calling summariserLLM to summarise the context
+  // previously i tested this result.llmCalls >= 3 as well as this allMessages.length >= 4
   if (allMessages.length >= 4) {
+    // Build a richer context that includes actual code from tool calls
     const fullContextText = allMessages
-      .map(m => `${m._getType().toUpperCase()} MESSAGE:\n${m.content}\n`)
-      .join('\n');
+      .map(m => {
+        let text = `${m._getType().toUpperCase()} MESSAGE:\n`;
+
+        // For AI messages with tool calls, include the actual arguments
+        if (m._getType() === 'ai' && m.tool_calls?.length > 0) {
+          text += `Tool calls made:\n`;
+          for (const tc of m.tool_calls) {
+            text += `- ${tc.name}(${JSON.stringify(tc.args, null, 2)})\n`;
+          }
+        }
+
+        // Add the message content
+        if (typeof m.content === 'string') {
+          text += m.content;
+        } else if (Array.isArray(m.content)) {
+          text += m.content.map(c => c.text || '').join('\n');
+        }
+
+        return text + '\n';
+      })
+      .join('\n---\n');
 
     const summary = await summariserLLM.invoke([
-      new SystemMessage("Summarise the following conversation context breifly so that it will be easier for another llm to continue the work from right here, make sure it has enough context to start working or make the changes from this new summary context. Please also include the code and the file reference in this summary, i think that is absolutely needed. keep the latest code and the file references in this sumary, so that llm can solve the bugs as well, if there will be any. keep the code inside the file as it is. keep the latest code always but always keep the latest code."),
+      new SystemMessage(`You are summarizing a conversation between a user and an AI coding agent. 
+
+      Your summary will be given to a FRESH AI agent (with no memory) to continue the work.
+
+    CRITICAL REQUIREMENTS:
+    1. Include the COMPLETE, CURRENT code for ALL files that were created/modified
+    2. Use markdown code blocks with file paths as headers
+    3. Explain what the user originally wanted
+    4. Explain what changes were just made
+    5. If the user is asking for follow-up changes, explain what they want changed
+
+    FORMAT:
+    ## Current Project State
+
+    [Brief description of what was built]
+
+    ### File: src/App.jsx
+    \`\`\`jsx
+    [FULL CODE HERE]
+    \`\`\`
+
+    ### File: src/App.css
+    \`\`\`css
+    [FULL CODE HERE]
+    \`\`\`
+
+    ## User's Latest Request
+    [What the user is now asking for]
+
+    REMEMBER: The next agent has ZERO context. It needs the COMPLETE current code to make changes.`),
       new HumanMessage(fullContextText)
-    ])
+    ]);
 
     conversationState.summary = summary.content;
+    console.log("this is a summary::", conversationState.summary);
 
-    const lastUserMessage = [...allMessages].reverse().find(m => m.getType() === 'human') as HumanMessage
+    // Keep only last user message + summary
+    const lastUserMessage = [...allMessages].reverse().find(m => m.getType() === 'human') as HumanMessage;
 
-    //keeping only last user message + summary
     conversationState.messages = [
-      // new SystemMessage(summary.content),
       new HumanMessage(lastUserMessage.content)
-    ]
+    ];
   }
 
 
@@ -305,20 +413,33 @@ export async function runAgent(userId: string, projectId: string, conversationSt
   }
 
   // Get ONLY the AI message that contains tool calls (probably earlier in sequence)
-  const aiWithTools = [...result.messages]
-    .reverse()
-    .find(m => m._getType() === "ai" && m.tool_calls?.length);
+  // const aiWithTools = [...result.messages]
+  //   .reverse()
+  //   .find(m => m._getType() === "ai" && m.tool_calls?.length);
 
-  if (aiWithTools?.tool_calls?.length) {
-    for (const tc of aiWithTools.tool_calls) {
-      client?.send(JSON.stringify({
-        type: "tool_call",
-        name: tc.name,
-        args: tc.args
-      }));
-    }
+  // if (aiWithTools?.tool_calls?.length) {
+  //   for (const tc of aiWithTools.tool_calls) {
+  //     client?.send(JSON.stringify({
+  //       type: "tool_call",
+  //       name: tc.name,
+  //       args: tc.args
+  //     }));
+  //   }
+  // }
+  // FIXED: Get ALL AI messages with tool calls (not just first one)
+  const allToolCalls = result.messages
+    .filter(m => m._getType() === "ai" && m.tool_calls?.length > 0)
+    .flatMap(m => m.tool_calls || []);
 
+  console.log("Total tool calls to send:", allToolCalls.length);
 
+  for (const tc of allToolCalls) {
+    console.log("Sending tool_call:", tc.name, tc.args?.filePath);
+    client?.send(JSON.stringify({
+      type: "tool_call",
+      name: tc.name,
+      args: tc.args
+    }));
   }
 
   // Send tool results
@@ -330,10 +451,31 @@ export async function runAgent(userId: string, projectId: string, conversationSt
     }));
   }
 
-  // Get ONLY the final AI message (the one without tool calls)
-  const finalAI = [...result.messages]
-    .reverse()
-    .find(m => m._getType() === "ai" && (!m.tool_calls || m.tool_calls.length === 0));
+  // FINAL AI MESSAGE FOR WEBSOCKET
+  function isNonEmptyAI(m: BaseMessage) {
+    if (m.getType() !== "ai") return false;
+
+    // Ignore tool-call AI messages
+    // @ts-ignore
+    if (m.tool_calls && m.tool_calls.length > 0) return false;
+
+    const content = m.content as any;
+
+    if (typeof content === "string") {
+      return content.trim().length > 0;
+    }
+
+    if (Array.isArray(content)) {
+      return content.some(c =>
+        typeof c.text === "string" && c.text.trim().length > 0
+      );
+    }
+
+    return false;
+  }
+
+  // Find the correct final AI message (skip empty ones)
+  const finalAI = [...result.messages].reverse().find(isNonEmptyAI);
 
   if (finalAI) {
     client?.send(JSON.stringify({
@@ -341,6 +483,7 @@ export async function runAgent(userId: string, projectId: string, conversationSt
       content: finalAI.content
     }));
   }
+
 }
 
 
