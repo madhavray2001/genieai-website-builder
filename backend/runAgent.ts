@@ -4,7 +4,7 @@ import * as z from "zod";
 import { StateGraph, START, END } from "@langchain/langgraph";
 import { MessagesZodMeta } from "@langchain/langgraph";
 import { registry } from "@langchain/langgraph/zod";
-import { HumanMessage, type BaseMessage } from "@langchain/core/messages";
+import { AIMessage, HumanMessage, type BaseMessage } from "@langchain/core/messages";
 import { SystemMessage } from "@langchain/core/messages";
 import { isAIMessage, ToolMessage } from "@langchain/core/messages";
 import Sandbox from "@e2b/code-interpreter";
@@ -19,7 +19,8 @@ const MessageState = z.object({
   messages: z.array(z.custom<BaseMessage>()).register(registry, MessagesZodMeta),
   llmCalls: z.number().optional(),
   summary: z.string().optional(),
-  summariserLLMCalls: z.number().optional()
+  summariserLLMCalls: z.number().optional(),
+  validationFailures: z.number().optional()
 })
 
 type State = z.infer<typeof MessageState>;
@@ -61,45 +62,192 @@ export async function runAgent(userId: string, projectId: string, conversationSt
   //     schema: CreateFileSchema
   //   },
   // )
+
+  // const createFile = tool(
+  //   async (input) => {
+
+  //     // Add validation
+  //     if (!input.filePath || input.filePath.trim() === '') {
+  //       throw new Error("filePath is required and cannot be empty");
+  //     }
+
+  //     const { content, filePath } = CreateFileSchema.parse(input);
+
+  //     // FORCE: All files MUST go to /home/user
+  //     let fullPath: string;
+
+  //     if (filePath.startsWith('/home/user/')) {
+  //       // Already has full path
+  //       fullPath = filePath;
+  //     } else if (filePath.startsWith('/')) {
+  //       // Absolute path but not in project dir - REJECT or FIX
+  //       fullPath = `/home/user${filePath}`;
+  //     } else {
+  //       // Relative path - prepend project dir
+  //       fullPath = `/home/user/${filePath}`;
+  //     }
+
+  //     //lets validate the code here for error
+  //     if(filePath.endsWith('.jsx')|| filePath.endsWith('.js')){
+  //       try {
+  //         //running the code in temp file
+  //         const tempPath = `/tmp/validate_${Date.now()}_${filePath.split('/').pop()}`;
+  //         await sandbox.files.write(tempPath, content);
+
+  //         //using esbuild to check the syntax errors
+  //         const validation = await sandbox.commands.run(
+  //           `npx esbuild ${tempPath} --loader=jsx --bundle --outfile=/dev/null`,
+  //         { 
+  //           cwd: '/home/user',
+  //           timeoutMs: 10000 
+  //         }
+  //         )
+
+  //         await sandbox.commands.run(`rm ${tempPath}`);
+
+  //         //check for errors
+  //         if (validation.exitCode !== 0 || validation.stderr) {
+  //     // including the file that caused the error along with the content
+  //      //IMPROVED: More explicit error message
+  //   return `VALIDATION FAILED - Code has syntax errors!
+
+  //   File: ${filePath}
+  //   Status: NOT CREATED (validation failed)
+
+  //   Error Details:
+  //   ${validation.stderr || 'Build process failed'}
+
+  //   Your Code (with errors):
+  //   \`\`\`jsx
+  //   ${content}
+  //   \`\`\`
+
+  //   ACTION REQUIRED:
+  //   You MUST call create_file again with the CORRECTED code for $   {filePath}.
+  //   Fix the syntax errors shown above before retrying.
+
+  //   __VALIDATION_FAILED__`;
+  //   }
+
+  //       } catch (error) {
+  //         return `Validation failed: ${error}
+  //         __VALIDATION_FAILED__`
+  //       }
+  //     }
+
+  //     // Create parent directory
+  //     const dir = fullPath.substring(0, fullPath.lastIndexOf('/'));
+  //     await sandbox.commands.run(`mkdir -p ${dir}`);
+
+  //     await sandbox.files.write(fullPath, content);
+
+  //     console.log(`File created: ${fullPath}`);
+  //     return `File created successfully at ${filePath}`;
+  //   },
+  //   {
+  //     name: "create_file",
+  //     description: "Creates a new file at the specified path. Use relative paths like 'src/App.tsx' or 'package.json'. They will be placed in the project directory.",
+  //     schema: CreateFileSchema
+  //   },
+  // )
+
   const createFile = tool(
     async (input) => {
-
-      // Add validation
       if (!input.filePath || input.filePath.trim() === '') {
         throw new Error("filePath is required and cannot be empty");
       }
 
       const { content, filePath } = CreateFileSchema.parse(input);
 
-      // FORCE: All files MUST go to /home/user
+      // Normalize path inside sandbox
       let fullPath: string;
-
       if (filePath.startsWith('/home/user/')) {
-        // Already has full path
         fullPath = filePath;
       } else if (filePath.startsWith('/')) {
-        // Absolute path but not in project dir - REJECT or FIX
         fullPath = `/home/user${filePath}`;
       } else {
-        // Relative path - prepend project dir
         fullPath = `/home/user/${filePath}`;
       }
 
-      // Create parent directory
+      // Ensure directory exists
       const dir = fullPath.substring(0, fullPath.lastIndexOf('/'));
       await sandbox.commands.run(`mkdir -p ${dir}`);
 
+      // Write the file
       await sandbox.files.write(fullPath, content);
+      console.log(`File written: ${fullPath}`);
 
-      console.log(`File created: ${fullPath}`);
+      // Skip validation for non-code files
+      const needsValidation =
+        filePath.endsWith('.js') ||
+        filePath.endsWith('.jsx')
+
+      if (!needsValidation) {
+        // IMPORTANT: Tell FE to refresh preview
+        client?.send(JSON.stringify({ type: "refresh_preview" }));
+        return `File created successfully at ${filePath}`;
+      }
+
+      try {
+        console.log(`Validating via Vite module transform: ${filePath}`);
+
+        // Let vite warm
+        await new Promise((r) => setTimeout(r, 300));
+
+        const host = sandbox.getHost(5173);
+        const previewUrl = `https://${host}`;
+        const moduleUrl = `${previewUrl}/${filePath}?t=${Date.now()}`;
+
+        console.log("Fetching module:", moduleUrl);
+
+        const res = await fetch(moduleUrl);
+        const body = await res.text();
+
+        const errorDetected =
+          !res.ok ||
+          body.includes('[plugin:vite') ||
+          body.includes('SyntaxError') ||
+          body.includes('Unexpected token') ||
+          body.includes('Transform failed') ||
+          body.includes('Module not found') ||
+          body.includes('ReferenceError') ||
+          body.includes('TypeError');
+
+        if (errorDetected) {
+          console.log(`Vite failed to compile ${filePath}`);
+
+          return `
+      VITE COMPILATION ERROR for: ${filePath}
+
+    ${body.slice(0, 900)}
+
+    __VALIDATION_FAILED__
+      `;
+        }
+
+        console.log(`Vite successfully compiled ${filePath}`);
+      } catch (err: any) {
+        console.log("Validation failed:", err);
+        return `
+        VITE VALIDATION FAILED
+
+    ${err?.message || err}
+
+    __VALIDATION_FAILED__
+    `;
+      }
+
+      // Tell FE to reload iframe
+      client?.send(JSON.stringify({ type: "refresh_preview" }));
+
       return `File created successfully at ${filePath}`;
     },
     {
       name: "create_file",
-      description: "Creates a new file at the specified path. Use relative paths like 'src/App.tsx' or 'package.json'. They will be placed in the project directory.",
-      schema: CreateFileSchema
-    },
-  )
+      description: "Creates a new file in the Vite project and validates it.",
+      schema: CreateFileSchema,
+    }
+  );
 
   //tool to run the shell commands
   const RunShellCommandSchema = z.object({
@@ -200,6 +348,8 @@ export async function runAgent(userId: string, projectId: string, conversationSt
     }
 
     const result: ToolMessage[] = [];
+    let validationFailures = state.validationFailures ?? 0;
+
     for (const toolCall of lastMessage.tool_calls ?? []) {
       const tool = toolsByName[toolCall.name];
       const observation = await tool?.invoke(toolCall);
@@ -207,12 +357,46 @@ export async function runAgent(userId: string, projectId: string, conversationSt
       // console.log("observation from toolNode", observation)
       // const ws = users.get(userId);
       client?.send(JSON.stringify(observation?.content))
+
+      //converting the ` ` to string and checking for validation result
+      const contentStr = typeof observation?.content === 'string'
+        ? observation.content
+        : JSON.stringify(observation?.content);
+
+      if (contentStr.includes("__VALIDATION_FAILED__")) {
+        validationFailures++;
+        console.log(`Validation failure #${validationFailures}`);
+      }
     }
-    return { messages: result }
+    return {
+      messages: result,
+      validationFailures
+    }
   }
 
   //adding a node to give the final response to the user
   async function finalNode(state: State) {
+
+    //checking if we need to show the validation failure msg to the user 
+    if ((state.validationFailures ?? 0) >= 3) {
+      // Don't call LLM, just return error message
+      const errorMessage = new AIMessage(`I apologize, but I encountered repeated syntax errors while trying to generate your code. After some attempts, I was unable to create valid code.
+
+  This might mean:
+  - The request is too complex for me to handle correctly
+  - There's an issue with how I'm interpreting your requirements
+
+  Could you please try:
+  1. Breaking down your request into smaller, simpler steps
+  2. Being more specific about what you want
+  3. Starting with a basic version first
+
+  I'm ready to help once you rephrase your request!`);
+
+      return {
+        messages: [errorMessage]
+      };
+    }
     const llmText = await llm.invoke([
       new SystemMessage("Summarize what you have done. Speak directly to the user. No tools. No code. Just a short final message. Also if the message contains summary then you need to understand that the user is following up in the chat and you need to give the response to that follow up as well"),
       ...state.messages
@@ -223,17 +407,103 @@ export async function runAgent(userId: string, projectId: string, conversationSt
     };
   }
 
+  // async function shouldContinue(state: State) {
+  //   const last = state.messages.at(-1);
+
+  //   if (!last || !isAIMessage(last)) return END;
+
+  //   //checking the validaiton failures
+  //   if((state.validationFailures ?? 0)>=3){
+  //     console.log("Max validation failure reached, going to final node")
+  //     return "finalNode";
+  //   }
+
+  //   // MODEL WANTS TO RUN A TOOL
+  //   if (last.tool_calls && last.tool_calls.length > 0) {
+  //     return "toolNode";
+  //   }
+
+  //   // CHECK IF CONTENT IS MEANINGFUL
+  //   const text =
+  //     typeof last.content === "string"
+  //       ? last.content.trim()
+  //       : Array.isArray(last.content)
+  //         ? last.content.map(c => c.text || "").join("").trim()
+  //         : "";
+
+  //   const isMeaningful = text.length > 0;
+
+  //   // EMPTY RESPONSE = TRY AGAIN (limit: 4)
+  //   if (!isMeaningful && (state.llmCalls ?? 0) < 4) {
+  //     return "llmCall";
+  //   }
+
+  //   // NEW: Check if we just had validation failures - give LLM chance to retry
+  // const recentValidationError = state.messages
+  //   .slice(-3) // Check last 3 messages
+  //   .some(m => 
+  //     m.getType() === 'tool' && 
+  //     m.content?.toString().includes('__VALIDATION_FAILED__')
+  //   );
+
+  // if (recentValidationError && (state.validationFailures ?? 0) < 3) {
+  //   console.log("Validation error detected, forcing LLM retry...");
+
+  //   // Check if LLM gave empty response (confused)
+  //   const isEmpty = !last.tool_calls?.length && 
+  //     (!last.content || last.content.toString().trim() === '');
+
+  //   if (isEmpty) {
+  //     console.log("LLM gave empty response, retrying with context...");
+  //   }
+
+  //   return "llmCall"; // ← Let LLM try to fix it
+  // }
+
+
+  //   //    NO TOOL CALLS + MEANINGFUL = FINAL
+  //   return "finalNode";
+  // }
+
+  //building the agent or lets say the graph
+
   async function shouldContinue(state: State) {
     const last = state.messages.at(-1);
 
     if (!last || !isAIMessage(last)) return END;
 
-    // MODEL WANTS TO RUN A TOOL
+    // Check validation failures FIRST
+    if ((state.validationFailures ?? 0) >= 3) {
+      console.log("Max validation failure reached");
+      return "finalNode";
+    }
+
+    // Check for recent validation error in last 2 messages
+    const recentToolMessages = state.messages
+      .slice(-2)
+      .filter(m => m.getType() === 'tool');
+
+    const hasValidationError = recentToolMessages.some(m =>
+      m.content?.toString().includes('__VALIDATION_FAILED__')
+    );
+
+    // If validation error AND LLM didn't retry, force it
+    if (hasValidationError && (state.validationFailures ?? 0) < 3) {
+      console.log("Validation error detected, forcing LLM retry...");
+
+      // If LLM gave no tool calls (confused), go back to llmCall
+      if (!last.tool_calls || last.tool_calls.length === 0) {
+        console.log("LLM confused by validation error, retrying...");
+        return "llmCall";
+      }
+    }
+
+    // Normal flow
     if (last.tool_calls && last.tool_calls.length > 0) {
       return "toolNode";
     }
 
-    // CHECK IF CONTENT IS MEANINGFUL
+    // Check if content is meaningful
     const text =
       typeof last.content === "string"
         ? last.content.trim()
@@ -243,16 +513,13 @@ export async function runAgent(userId: string, projectId: string, conversationSt
 
     const isMeaningful = text.length > 0;
 
-    // EMPTY RESPONSE = TRY AGAIN (limit: 4)
     if (!isMeaningful && (state.llmCalls ?? 0) < 4) {
       return "llmCall";
     }
 
-    //    NO TOOL CALLS + MEANINGFUL = FINAL
     return "finalNode";
   }
 
-  //building the agent or lets say the graph
   const agent = new StateGraph(MessageState)
     .addNode("llmCall", llmCall)
     .addNode("toolNode", toolNode)

@@ -155,6 +155,26 @@ const page = ({ params, prompt }: PageProps) => {
                         content: data.content
                     }]);
                     break;
+                
+                case "refresh_preview": {
+                    console.log("Refreshing iframe preview...");
+
+                    const iframe = document.querySelector("iframe");
+                    if (!iframe) return;
+
+                    // Only refresh if it is already pointing to the vite URL
+                    const current = iframe.src;
+
+                    if (!current.includes(":5173")) {
+                    console.log("Not refreshing — iframe not ready");
+                    return;
+                    }
+
+                    iframe.src = current.split("?")[0] + "?t=" + Date.now();
+                    break;
+                }
+
+
 
                 default:
                     console.log("Unknown:", data);

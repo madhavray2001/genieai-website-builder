@@ -35,19 +35,19 @@ export interface Files{
 export function extractFilesFromMessages(messages:Message[]):FileNode[]{
     const filesMap = new Map<string, string>();
     
-    console.log("🔍 Extracting files from messages. Total messages:", messages.length);
+    console.log("Extracting files from messages. Total messages:", messages.length);
     
     for(const msg of messages){
         if(msg.type==='tool_call' && msg.toolCall){
-            console.log("📦 Found tool_call:", msg.toolCall);
+            console.log("Found tool_call:", msg.toolCall);
             
             if(msg.toolCall.name==='create_file' && msg.toolCall.args){
                 const {filePath, content} = msg.toolCall.args;
                 
-                console.log("✅ Extracting file:", filePath);
+                console.log("Extracting file:", filePath);
                 
                 if (!filePath) {
-                    console.error("❌ Missing filePath in tool call:", msg.toolCall);
+                    console.error("Missing filePath in tool call:", msg.toolCall);
                     continue;
                 }
                 
@@ -61,8 +61,8 @@ export function extractFilesFromMessages(messages:Message[]):FileNode[]{
         }
     }
     
-    console.log("📊 Total files extracted:", filesMap.size);
-    console.log("📂 File paths:", Array.from(filesMap.keys()));
+    console.log("Total files extracted:", filesMap.size);
+    console.log("File paths:", Array.from(filesMap.keys()));
     
     const files: Array<Files> = Array.from(filesMap.entries()).map(([path, content]) => ({
         path,
@@ -70,7 +70,7 @@ export function extractFilesFromMessages(messages:Message[]):FileNode[]{
     }));
     
     const tree = buildFileTree(files);
-    console.log("🌳 Built file tree:", tree);
+    console.log("Built file tree:", tree);
     
     return tree;
 }
