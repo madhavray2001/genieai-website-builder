@@ -12,6 +12,7 @@ import 'dotenv/config'
 import { systemPrompt } from "./systemPrompt";
 import { PrismaClient } from "./generated/prisma";
 import { ChatAnthropic } from "@langchain/anthropic";
+import { scanLLM, secureCommand, secureFilePath } from "./guardrails";
 
 const prisma = new PrismaClient();
 
@@ -159,6 +160,9 @@ export async function runAgent(userId: string, projectId: string, conversationSt
 
       const { content, filePath } = CreateFileSchema.parse(input);
 
+      //filepath guardrail
+      secureFilePath(filePath);
+
       // Normalize path inside sandbox
       let fullPath: string;
       if (filePath.startsWith('/home/user/')) {
@@ -275,6 +279,9 @@ export async function runAgent(userId: string, projectId: string, conversationSt
     async (input) => {
       const { command } = RunShellCommandSchema.parse(input);
 
+      //command guardrail
+      secureCommand(command);
+
       // Always run commands in /home/user
       await sandbox.commands.run(command, {
         cwd: '/home/user',  // ← Force working directory
@@ -351,6 +358,9 @@ export async function runAgent(userId: string, projectId: string, conversationSt
     let validationFailures = state.validationFailures ?? 0;
 
     for (const toolCall of lastMessage.tool_calls ?? []) {
+      //running guardrails before executing them
+      scanLLM(JSON.stringify(toolCall))
+      
       const tool = toolsByName[toolCall.name];
       const observation = await tool?.invoke(toolCall);
       result.push(observation!);
