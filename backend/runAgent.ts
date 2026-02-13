@@ -359,7 +359,7 @@ export async function runAgent(userId: string, projectId: string, conversationSt
 
     for (const toolCall of lastMessage.tool_calls ?? []) {
       //running guardrails before executing them
-      scanLLM(JSON.stringify(toolCall))
+      // scanLLM(JSON.stringify(toolCall))
       
       const tool = toolsByName[toolCall.name];
       const observation = await tool?.invoke(toolCall);

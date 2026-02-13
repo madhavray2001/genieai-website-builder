@@ -104,9 +104,20 @@ router.get('/project/load/:id', async(req:express.Request, res:express.Response)
         //getting the project url
         const host = sandbox.getHost(5173);
 
+        //getting the conversation history from the db
+        const conversation = await prisma.conversationHistory.findMany({
+            where:{
+                projectId,
+            },
+            orderBy:{
+                createdAt:'asc'
+            }
+        })
+
         return res.status(200).json({
             msg:"Project loaded successfully",
-            projectUrl: `https://${host}`
+            projectUrl: `https://${host}`,
+            conversation
         })
     } catch (error) {
         console.error("Error loading project", error);

@@ -59,6 +59,20 @@ const page = ({ params, prompt }: PageProps) => {
         setFileTree(files);
     }, [messages]);
 
+    //saving the project state to the session storage whenever it changes
+    useEffect(() => {
+      if(projectUrl && messages.length >0){
+        const projectState = {
+            projectUrl,
+            initialPrompt,
+            messages,
+            fileTree,
+            timeStamp: Date.now()
+        };
+        sessionStorage.setItem(`project_${id}`, JSON.stringify(projectState));
+      }
+    }, [projectUrl, initialPrompt, messages, fileTree])
+    
 
     useEffect(() => {
         if (hasFetched.current) return;
@@ -75,14 +89,33 @@ const page = ({ params, prompt }: PageProps) => {
         async function initializeProject() {
 
             try {
+                //checking session storage if the project exists there
+                const currentProjectState = sessionStorage.getItem(`project_${id}`);
+
+                if(currentProjectState){
+                    console.log("user refreshed! loading project from session storage")
+                    const state = JSON.parse(currentProjectState);
+
+                    setprojectUrl(state.projectUrl);
+                    setInitialPrompt(state.initialPrompt);
+                    setMessages(state.messages || []);
+                    setFileTree(state.fileTree || []);
+
+                    return;
+                }
+
+                //checking if the project came from project card and does exists in session storage
                 const loadedProject = sessionStorage.getItem('loadedProject');
 
                 if(loadedProject){
                     const data = JSON.parse(loadedProject);
                     setprojectUrl(data.projectUrl);
+                    setMessages(data.conversation); 
                     sessionStorage.removeItem('loadedProject');
                 }
-                else{
+
+                //hitting the backend if the project is being created for the first time
+                if(!loadedProject){
                     const res = await fetch(`http://localhost:5000/api/project/${id}`)
                     const data: ProjectResponse = await res.json();
         
@@ -101,7 +134,7 @@ const page = ({ params, prompt }: PageProps) => {
                     console.log("data2 by hitting /prompt api:", data2)
                 }
             } catch (error) {
-                
+                console.log("Internal server error", error)
             }
 
         }
