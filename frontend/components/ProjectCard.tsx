@@ -32,6 +32,7 @@ export function CardDemo({id, title}:{id:string, title:String}) {
 
   const handleOpenProject = async()=>{
     try {
+      console.log("log log")
       const response = await fetch(`http://localhost:5000/api/project/load/${id}?userId=${session?.user.id}`);
 
       const data = await response.json();
@@ -70,7 +71,7 @@ export function CardDemo({id, title}:{id:string, title:String}) {
         projectUrl:data.projectUrl,
         conversation:transformedMessages
       }));
-      
+
       router.push(`project/${id}`)
 
     } catch (error) {

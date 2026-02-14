@@ -73,6 +73,14 @@ const page = ({ params, prompt }: PageProps) => {
       }
     }, [projectUrl, initialPrompt, messages, fileTree])
     
+    //to cleanup the session storage when the user navigates away from this page
+    // useEffect(() => {
+    // return () => {
+    // console.log("Leaving project page, clearing session storage…");
+    // sessionStorage.removeItem(`project:${id}`);
+    // };
+    // }, [id]);
+
 
     useEffect(() => {
         if (hasFetched.current) return;
@@ -218,6 +226,9 @@ const page = ({ params, prompt }: PageProps) => {
 
     const humanMsg = messages.filter(m => m.type === 'human');
     const aiMsg = messages.filter(m => m.type === 'ai');
+    console.log("this is a humanMsg", humanMsg)
+    console.log("this is a aiMsg", aiMsg)
+
     // const toolCall = messages.filter(m=>m.type==='tool_call')
 
     return (

@@ -61,9 +61,20 @@ app.post("/prompt", async (req: express.Request, res: express.Response) => {
     }
 
     let projectState = globalStore.get(userId);
+
+    //initialising new project if the project doesnt exist
+    if(!projectState?.has(projectId)){
+      console.log(`Initialising new project ${projectId} for user ${userId}`);
+      projectState?.set(projectId,{
+        messages:[],
+        llmCalls:0
+      })
+    }
+
     let conversationState: ConversationState = projectState?.get(projectId)!;
     conversationState.messages.push(new HumanMessage(prompt))
     // console.log("checking global store with conversationState", globalStore)
+    // console.log("checking the conversation state", conversationState);
 
     const client: WebSocket = users.get(userId)!;
 

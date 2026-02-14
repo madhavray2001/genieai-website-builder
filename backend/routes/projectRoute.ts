@@ -19,7 +19,7 @@ router.post('/project', async (req : express.Request, res: express.Response) => 
       })
 
       const aiGivenTitle = await titleGeneratorLLM.invoke([
-        new SystemMessage("Please generate a 3 to 4 word maximum meaningful summary or the title from the user given initial prompt. Your task is to only give the title of the project. Give the relevant title for the prompt or the project in maximum 3 to 4 words. Please make sure the title is meaningful and represents the project user is trying to create"),
+        new SystemMessage("Please generate a 3 to 4 word maximum meaningful summary or the title from the user given initial prompt. Your task is to only give the title of the project. Give the relevant title for the prompt or the project in maximum 3 to 4 words. Please make sure the title is meaningful and represents the project user is trying to create. Do not hallucinate, only give whats really relevant and related to the users prompt. Read the users prompt better and give the best title."),
         new HumanMessage(initialPrompt)
       ])
       const title = aiGivenTitle.content as string;

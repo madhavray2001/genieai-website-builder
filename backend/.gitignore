@@ -3,6 +3,7 @@ node_modules
 
 #files
 test.ts
+testSysPrompts.ts
 
 # output
 out

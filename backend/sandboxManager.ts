@@ -31,10 +31,13 @@ export async function getSandbox(projectId: string, userId: string): Promise<San
         await saveProjectToS3(sandboxInfo.sandbox, userId, sandboxInfo.currentProjectId);
 
         //clearing the sandbox workspace to run new project 
-        await sandboxInfo.sandbox.commands.run('rm -rf /home/user/*');
+        await sandboxInfo.sandbox.commands.run('rm -rf /home/user/src/*');
         console.log("workspace cleared!!");
 
-        const loaded = await loadProjectFromS3(sandboxInfo.sandbox, userId, sandboxInfo.currentProjectId);
+        //checking if this keeping only projectId works
+        // const loaded = await loadProjectFromS3(sandboxInfo.sandbox, userId, sandboxInfo.currentProjectId);
+        const loaded = await loadProjectFromS3(sandboxInfo.sandbox, userId, projectId);
+
       }
       sandboxInfo.currentProjectId = projectId;
       sandboxInfo.lastAccessed = new Date();
@@ -45,6 +48,7 @@ export async function getSandbox(projectId: string, userId: string): Promise<San
 
   console.log(`Creating NEW sandbox for ${userId}...`);
 
+  // timeoutMs:1800000
   const sandbox = await Sandbox.create('8yn0aii31bapkinrarai', {
     timeoutMs: SANDBOX_TIMEOUT
   });

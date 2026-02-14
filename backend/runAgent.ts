@@ -28,15 +28,23 @@ type State = z.infer<typeof MessageState>;
 
 export async function runAgent(userId: string, projectId: string, conversationState: State, client: WebSocket, sandbox: Sandbox) {
 
-  const llm = new ChatGoogleGenerativeAI({
-    model: "gemini-2.5-flash-lite",
-    temperature: 1
-  })
+  // const llm = new ChatGoogleGenerativeAI({
+  //   model: "gemini-2.5-pro",
+  //   temperature: 1
+  // })
 
-  //   const llm = new ChatAnthropic({
-  //   model: "claude-sonnet-4-5-20250929",
-  //   temperature: 0,
-  // });
+    const llm = new ChatAnthropic({
+    model: "claude-sonnet-4-5-20250929",
+    temperature: 0,
+  });
+
+//   const llm = new ChatAnthropic({
+//   model: "claude-sonnet-4-5-20250929",
+//   temperature: 0,
+//   streaming: false,
+//   tool_choice: "required"
+// });
+
 
   const summariserLLM = new ChatGoogleGenerativeAI({
     model: "gemini-2.0-flash",
@@ -307,6 +315,9 @@ export async function runAgent(userId: string, projectId: string, conversationSt
   };
   const tools = Object.values(toolsByName)
   const llmWithTools = llm.bindTools(tools);
+  // for updated anthropic
+  // const llmWithTools = llm.bindTools(tools, { tool_choice: "required" });
+
 
 
   //defining the model node
