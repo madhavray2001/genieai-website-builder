@@ -26,7 +26,7 @@ const MessageState = z.object({
 
 type State = z.infer<typeof MessageState>;
 
-export async function runAgent(userId: string, projectId: string, conversationState: State, client: WebSocket, sandbox: Sandbox) {
+export async function runAgent(userId: string, projectId: string, conversationState: State, client: WebSocket, sandbox: Sandbox):Promise<void> {
 
   // const llm = new ChatGoogleGenerativeAI({
   //   model: "gemini-2.5-pro",
@@ -38,13 +38,6 @@ export async function runAgent(userId: string, projectId: string, conversationSt
     temperature: 0,
   });
 
-//   const llm = new ChatAnthropic({
-//   model: "claude-sonnet-4-5-20250929",
-//   temperature: 0,
-//   streaming: false,
-//   tool_choice: "required"
-// });
-
 
   const summariserLLM = new ChatGoogleGenerativeAI({
     model: "gemini-2.0-flash",
@@ -54,119 +47,24 @@ export async function runAgent(userId: string, projectId: string, conversationSt
   //defining the tools
   const CreateFileSchema = z.object({
     filePath: z.string().describe("Absolute or relative path to the file"),
-    content: z.string().describe("Text content to write inside the file"),
+    content:z
+    .string()
+    .min(1, "content cannot be empty - you MUST provide the actual file content")
+    .describe("Complete text content to write inside the file. This is REQUIRED and cannot be empty.")
   })
-
-  // const createFile = tool(
-  //   async (input) => {
-  //     const { content, filePath} = CreateFileSchema.parse(input);
-  //     await sandbox.files.write(
-  //       filePath, content
-  //     );
-  //     return `File created successfully at ${filePath}`;
-  //   },
-  //   {
-  //     name: "create_file",
-  //     description: "Creates a new file at the specified path with the given content",
-  //     schema: CreateFileSchema
-  //   },
-  // )
-
-  // const createFile = tool(
-  //   async (input) => {
-
-  //     // Add validation
-  //     if (!input.filePath || input.filePath.trim() === '') {
-  //       throw new Error("filePath is required and cannot be empty");
-  //     }
-
-  //     const { content, filePath } = CreateFileSchema.parse(input);
-
-  //     // FORCE: All files MUST go to /home/user
-  //     let fullPath: string;
-
-  //     if (filePath.startsWith('/home/user/')) {
-  //       // Already has full path
-  //       fullPath = filePath;
-  //     } else if (filePath.startsWith('/')) {
-  //       // Absolute path but not in project dir - REJECT or FIX
-  //       fullPath = `/home/user${filePath}`;
-  //     } else {
-  //       // Relative path - prepend project dir
-  //       fullPath = `/home/user/${filePath}`;
-  //     }
-
-  //     //lets validate the code here for error
-  //     if(filePath.endsWith('.jsx')|| filePath.endsWith('.js')){
-  //       try {
-  //         //running the code in temp file
-  //         const tempPath = `/tmp/validate_${Date.now()}_${filePath.split('/').pop()}`;
-  //         await sandbox.files.write(tempPath, content);
-
-  //         //using esbuild to check the syntax errors
-  //         const validation = await sandbox.commands.run(
-  //           `npx esbuild ${tempPath} --loader=jsx --bundle --outfile=/dev/null`,
-  //         { 
-  //           cwd: '/home/user',
-  //           timeoutMs: 10000 
-  //         }
-  //         )
-
-  //         await sandbox.commands.run(`rm ${tempPath}`);
-
-  //         //check for errors
-  //         if (validation.exitCode !== 0 || validation.stderr) {
-  //     // including the file that caused the error along with the content
-  //      //IMPROVED: More explicit error message
-  //   return `VALIDATION FAILED - Code has syntax errors!
-
-  //   File: ${filePath}
-  //   Status: NOT CREATED (validation failed)
-
-  //   Error Details:
-  //   ${validation.stderr || 'Build process failed'}
-
-  //   Your Code (with errors):
-  //   \`\`\`jsx
-  //   ${content}
-  //   \`\`\`
-
-  //   ACTION REQUIRED:
-  //   You MUST call create_file again with the CORRECTED code for $   {filePath}.
-  //   Fix the syntax errors shown above before retrying.
-
-  //   __VALIDATION_FAILED__`;
-  //   }
-
-  //       } catch (error) {
-  //         return `Validation failed: ${error}
-  //         __VALIDATION_FAILED__`
-  //       }
-  //     }
-
-  //     // Create parent directory
-  //     const dir = fullPath.substring(0, fullPath.lastIndexOf('/'));
-  //     await sandbox.commands.run(`mkdir -p ${dir}`);
-
-  //     await sandbox.files.write(fullPath, content);
-
-  //     console.log(`File created: ${fullPath}`);
-  //     return `File created successfully at ${filePath}`;
-  //   },
-  //   {
-  //     name: "create_file",
-  //     description: "Creates a new file at the specified path. Use relative paths like 'src/App.tsx' or 'package.json'. They will be placed in the project directory.",
-  //     schema: CreateFileSchema
-  //   },
-  // )
 
   const createFile = tool(
     async (input) => {
-      if (!input.filePath || input.filePath.trim() === '') {
+      
+      const { content, filePath } = CreateFileSchema.parse(input);
+
+      //adding explicit validation cause mf llm doesnt obey
+      if(!content || typeof content !== 'string'){
+        return `ERROR: content is required for ${filePath}. You MUST provide the complete file content. Do NOT create empty files.`
+      }
+      if (!filePath || filePath.trim() === '') {
         throw new Error("filePath is required and cannot be empty");
       }
-
-      const { content, filePath } = CreateFileSchema.parse(input);
 
       //filepath guardrail
       secureFilePath(filePath);
@@ -182,7 +80,7 @@ export async function runAgent(userId: string, projectId: string, conversationSt
       }
 
       // Ensure directory exists
-      const dir = fullPath.substring(0, fullPath.lastIndexOf('/'));
+      const dir = fullPath.slice(0, fullPath.lastIndexOf('/'));
       await sandbox.commands.run(`mkdir -p ${dir}`);
 
       // Write the file
@@ -195,7 +93,7 @@ export async function runAgent(userId: string, projectId: string, conversationSt
         filePath.endsWith('.jsx')
 
       if (!needsValidation) {
-        // IMPORTANT: Tell FE to refresh preview
+        // Tell FE to refresh preview
         client?.send(JSON.stringify({ type: "refresh_preview" }));
         return `File created successfully at ${filePath}`;
       }
@@ -229,24 +127,20 @@ export async function runAgent(userId: string, projectId: string, conversationSt
           console.log(`Vite failed to compile ${filePath}`);
 
           return `
-      VITE COMPILATION ERROR for: ${filePath}
-
-    ${body.slice(0, 900)}
-
-    __VALIDATION_FAILED__
-      `;
+          VITE COMPILATION ERROR for: ${filePath} 
+          ${body.slice(0, 1000)}
+          __VALIDATION_FAILED__`;
         }
 
         console.log(`Vite successfully compiled ${filePath}`);
+
       } catch (err: any) {
         console.log("Validation failed:", err);
+        
         return `
         VITE VALIDATION FAILED
-
-    ${err?.message || err}
-
-    __VALIDATION_FAILED__
-    `;
+        ${err?.message || err}
+        __VALIDATION_FAILED__`;
       }
 
       // Tell FE to reload iframe
@@ -267,29 +161,11 @@ export async function runAgent(userId: string, projectId: string, conversationSt
     cwd: z.string().optional().describe("Directory where to run the command"),
   })
 
-  // const runShellCommand = tool(
-  //   async (input) => {
-  //     const  {command}  = RunShellCommandSchema.parse(input);
-  //     await sandbox.commands.run(command, {
-  //       onStdout: (data) => {
-  //         console.log("cmd out:", data)
-  //       }
-  //     })
-  //     return `Running: "${command}"}`;
-  //   },
-  //   {
-  //     name: "run_shell_command",
-  //     description: "Runs a shell command in the given directory",
-  //     schema: RunShellCommandSchema,
-  //   }
-  // )
   const runShellCommand = tool(
     async (input) => {
       const { command } = RunShellCommandSchema.parse(input);
-
       //command guardrail
       secureCommand(command);
-
       // Always run commands in /home/user
       await sandbox.commands.run(command, {
         cwd: '/home/user',  // ← Force working directory
@@ -312,19 +188,14 @@ export async function runAgent(userId: string, projectId: string, conversationSt
     [createFile.name]: createFile,
     // [serveStaticProject.name]:serveStaticProject,
     [runShellCommand.name]: runShellCommand
-  };
+    };
   const tools = Object.values(toolsByName)
   const llmWithTools = llm.bindTools(tools);
-  // for updated anthropic
-  // const llmWithTools = llm.bindTools(tools, { tool_choice: "required" });
-
-
 
   //defining the model node
   async function llmCall(state: State) {
     const msgs: BaseMessage[] = [];
-
-    // Always start with ONE system message (combine prompt + summary if exists)
+    //if the summary exist then add the summary as well to the system prompt
     const systemContent = state.summary
       ? `${systemPrompt}
 
@@ -341,13 +212,7 @@ export async function runAgent(userId: string, projectId: string, conversationSt
     The user is now making a follow-up request below.`
       : systemPrompt;
 
-    msgs.push(new SystemMessage(systemContent));
-
-    // Add all messages from state (these should be HumanMessage and AIMessage only)
-    // After summarization, state.messages only contains recent human messages
-    // Before summarization, it contains full history
-    msgs.push(...state.messages);
-
+    msgs.push(new SystemMessage(systemContent), ...state.messages);
 
     const response = await llmWithTools.invoke(msgs);
 
@@ -359,27 +224,34 @@ export async function runAgent(userId: string, projectId: string, conversationSt
 
   //define the tool node, finding the last message of llm if theres any tool call or no need to call the tool
   async function toolNode(state: State) {
-    const lastMessage = state.messages.at(-1);
+  const lastMessage = state.messages.at(-1);
 
-    if (lastMessage == null || !isAIMessage(lastMessage)) {
-      return { messages: [] };
-    }
+  if (lastMessage == null || !isAIMessage(lastMessage)) {
+    return { messages: [] };
+  }
 
-    const result: ToolMessage[] = [];
-    let validationFailures = state.validationFailures ?? 0;
+  const result: ToolMessage[] = [];
+  let validationFailures = state.validationFailures ?? 0;
 
-    for (const toolCall of lastMessage.tool_calls ?? []) {
-      //running guardrails before executing them
-      // scanLLM(JSON.stringify(toolCall))
-      
-      const tool = toolsByName[toolCall.name];
+  for (const toolCall of lastMessage.tool_calls ?? []) {
+    const tool = toolsByName[toolCall.name];
+    
+    try {
+      // Validate tool call BEFORE execution
+      if (toolCall.name === 'create_file') {
+        if (!toolCall.args?.filePath) {
+          throw new Error("create_file called without filePath argument");
+        }
+        if (!toolCall.args?.content) {
+          throw new Error(`create_file called for ${toolCall.args.filePath} without content argument`);
+        }
+      }
+
       const observation = await tool?.invoke(toolCall);
       result.push(observation!);
-      // console.log("observation from toolNode", observation)
-      // const ws = users.get(userId);
-      client?.send(JSON.stringify(observation?.content))
+      
+      client?.send(JSON.stringify(observation?.content));
 
-      //converting the ` ` to string and checking for validation result
       const contentStr = typeof observation?.content === 'string'
         ? observation.content
         : JSON.stringify(observation?.content);
@@ -388,11 +260,48 @@ export async function runAgent(userId: string, projectId: string, conversationSt
         validationFailures++;
         console.log(`Validation failure #${validationFailures}`);
       }
+
+    } catch (error: any) {
+      // Catch schema validation errors
+      console.error(`Tool execution error for ${toolCall.name}:`, error.message);
+      
+      const errorMessage = new ToolMessage({
+        tool_call_id: toolCall.id as string,
+        content: `
+      ERROR: Tool call failed!
+      Tool: ${toolCall.name}
+      Error: ${error.message}
+      You called this tool incorrectly. Read the tool description carefully and   try again.
+
+      For create_file, you MUST provide BOTH:
+      1. filePath (e.g., "src/App.css")
+      2. content (the complete file content as a string)
+
+      Example:
+      {
+      "name": "create_file",
+      "args": {
+       "filePath": "src/App.css",
+       "content": "body { margin: 0; padding: 0; }"
+      }
+      }
+
+      Try again with the correct parameters.
+
+      __VALIDATION_FAILED__
+        `,
+        name: toolCall.name
+      });
+
+      result.push(errorMessage);
+      validationFailures++;
     }
-    return {
-      messages: result,
-      validationFailures
-    }
+  }
+  
+  return {
+    messages: result,
+    validationFailures
+  };
   }
 
   //adding a node to give the final response to the user
@@ -401,25 +310,25 @@ export async function runAgent(userId: string, projectId: string, conversationSt
     //checking if we need to show the validation failure msg to the user 
     if ((state.validationFailures ?? 0) >= 3) {
       // Don't call LLM, just return error message
-      const errorMessage = new AIMessage(`I apologize, but I encountered repeated syntax errors while trying to generate your code. After some attempts, I was unable to create valid code.
+      const errorMessage = new AIMessage(`I apologize, but I encountered repeated errors while trying to generate your code. After some attempts, I was unable to create valid code.
+      This might mean:
+      - The request is too complex for me to handle correctly
+      - There's an issue with how I'm interpreting your requirements
 
-  This might mean:
-  - The request is too complex for me to handle correctly
-  - There's an issue with how I'm interpreting your requirements
+      Could you please try:
+      1. Breaking down your request into smaller, simpler steps
+      2. Being more specific about what you want
+      3. Starting with a basic version first
 
-  Could you please try:
-  1. Breaking down your request into smaller, simpler steps
-  2. Being more specific about what you want
-  3. Starting with a basic version first
-
-  I'm ready to help once you rephrase your request!`);
+      I'm ready to help once you rephrase your request!`);
 
       return {
         messages: [errorMessage]
       };
     }
+
     const llmText = await llm.invoke([
-      new SystemMessage("Summarize what you have done. Speak directly to the user. No tools. No code. Just a short final message. Also if the message contains summary then you need to understand that the user is following up in the chat and you need to give the response to that follow up as well"),
+      new SystemMessage("Summarize what you have done. Speak directly to the user. No tools. No code. Just a short final message. Also if the message contains summary then you need to understand that the user is following up in the chat and you need to give the response to that follow up as well."),
       ...state.messages
     ]);
 
@@ -427,66 +336,6 @@ export async function runAgent(userId: string, projectId: string, conversationSt
       messages: [llmText]
     };
   }
-
-  // async function shouldContinue(state: State) {
-  //   const last = state.messages.at(-1);
-
-  //   if (!last || !isAIMessage(last)) return END;
-
-  //   //checking the validaiton failures
-  //   if((state.validationFailures ?? 0)>=3){
-  //     console.log("Max validation failure reached, going to final node")
-  //     return "finalNode";
-  //   }
-
-  //   // MODEL WANTS TO RUN A TOOL
-  //   if (last.tool_calls && last.tool_calls.length > 0) {
-  //     return "toolNode";
-  //   }
-
-  //   // CHECK IF CONTENT IS MEANINGFUL
-  //   const text =
-  //     typeof last.content === "string"
-  //       ? last.content.trim()
-  //       : Array.isArray(last.content)
-  //         ? last.content.map(c => c.text || "").join("").trim()
-  //         : "";
-
-  //   const isMeaningful = text.length > 0;
-
-  //   // EMPTY RESPONSE = TRY AGAIN (limit: 4)
-  //   if (!isMeaningful && (state.llmCalls ?? 0) < 4) {
-  //     return "llmCall";
-  //   }
-
-  //   // NEW: Check if we just had validation failures - give LLM chance to retry
-  // const recentValidationError = state.messages
-  //   .slice(-3) // Check last 3 messages
-  //   .some(m => 
-  //     m.getType() === 'tool' && 
-  //     m.content?.toString().includes('__VALIDATION_FAILED__')
-  //   );
-
-  // if (recentValidationError && (state.validationFailures ?? 0) < 3) {
-  //   console.log("Validation error detected, forcing LLM retry...");
-
-  //   // Check if LLM gave empty response (confused)
-  //   const isEmpty = !last.tool_calls?.length && 
-  //     (!last.content || last.content.toString().trim() === '');
-
-  //   if (isEmpty) {
-  //     console.log("LLM gave empty response, retrying with context...");
-  //   }
-
-  //   return "llmCall"; // ← Let LLM try to fix it
-  // }
-
-
-  //   //    NO TOOL CALLS + MEANINGFUL = FINAL
-  //   return "finalNode";
-  // }
-
-  //building the agent or lets say the graph
 
   async function shouldContinue(state: State) {
     const last = state.messages.at(-1);
@@ -548,47 +397,41 @@ export async function runAgent(userId: string, projectId: string, conversationSt
     .addEdge(START, "llmCall")
     .addConditionalEdges("llmCall", shouldContinue, ["toolNode", "llmCall", "finalNode"])
     .addEdge("toolNode", "llmCall")
-    // .addEdge("toolNode", "finalNode")
     .addEdge("finalNode", END)
     .compile();
 
   // Run agent
-  const result = await agent.invoke(conversationState);
-  //DEBUG: Check what files were actually created
-  try {
-    console.log('\n CHECKING FILES IN SANDBOX:');
+  const result = await agent.invoke(conversationState)as State;
+  //Check what files were actually created
+  // try {
+  //   console.log('\n CHECKING FILES IN SANDBOX:');
 
-    // Check root
-    const rootFiles = await sandbox.files.list('/');
-    console.log('Root files:', rootFiles?.map(f => f.name));
+  //   // Check root
+  //   const rootFiles = await sandbox.files.list('/');
+  //   console.log('Root files:', rootFiles?.map(f => f.name));
 
-    // Check /home/user
-    try {
-      const projectFiles = await sandbox.files.list('/home/user');
-      console.log(' /home/user files:', projectFiles?.map(f => f.name));
-    } catch (err) {
-      console.log(' /home/user does NOT exist');
-    }
+  //   // Check /home/user
+  //   try {
+  //     const projectFiles = await sandbox.files.list('/home/user');
+  //     console.log(' /home/user files:', projectFiles?.map(f => f.name));
+  //   } catch (err) {
+  //     console.log(' /home/user does NOT exist');
+  //   }
 
-  } catch (error) {
-    console.log(' Error checking files:', error);
-  }
-  // console.log("this is the log from conversationState",JSON.stringify(conversationState) +"\n"+"\n"+"\n");
-  console.log("this is the result.messages::", result.messages);
-  console.log("Number of llm calls", result.llmCalls);
+  // } catch (error) {
+  //   console.log(' Error checking files:', error);
+  // }
 
-  // const allMessages = [...conversationState.messages, ...result.messages];
+  // console.log("this is the result.messages::", result.messages);
+  // console.log("Number of llm calls", result.llmCalls);
   const allMessages = result.messages;
   console.log("Length of all messages is:", allMessages.length)
 
-  // console.log("this is from allMessage:", allMessages)
-
   //getting the final ai response and saving it to db
-  // const finalAIResponse = [...allMessages].reverse().find(m => m.getType() === 'ai' && (!m.tool_calls || m.tool_calls.length === 0));
   const finalAIResponse = [...result.messages]
     .reverse()
+    .filter(isAIMessage)
     .find(m =>
-      m._getType() === "ai" &&
       (!m.tool_calls || m.tool_calls.length === 0) &&
       (
         typeof m.content === "string"
@@ -596,14 +439,15 @@ export async function runAgent(userId: string, projectId: string, conversationSt
           : Array.isArray(m.content) && m.content.some(c => c.text?.trim().length > 0)
       )
     );
-
-  // const aiResponseText = finalAIResponse?.content || ' ';
-  //Convert content to string (handle both string and array formats)
+    console.log("finalAiResponse without parsing:", finalAIResponse)
+  //as finalAiResponse is sometime giving string as well as object. making sure it works on all models i use; some gives the array like content:[{}]
   const aiResponseText = typeof finalAIResponse?.content === 'string'
     ? finalAIResponse.content
     : Array.isArray(finalAIResponse?.content)
       ? finalAIResponse.content.map(c => c.text || '').join('\n')
       : '';
+
+  console.log("final ai response text",aiResponseText);
 
   await prisma.conversationHistory.create({
     data: {
@@ -620,10 +464,10 @@ export async function runAgent(userId: string, projectId: string, conversationSt
     // Build a richer context that includes actual code from tool calls
     const fullContextText = allMessages
       .map(m => {
-        let text = `${m._getType().toUpperCase()} MESSAGE:\n`;
+        let text = `${m.getType().toUpperCase()} MESSAGE:\n`;
 
         // For AI messages with tool calls, include the actual arguments
-        if (m._getType() === 'ai' && m.tool_calls?.length > 0) {
+        if (m.getType() === 'ai' && m.tool_calls?.length > 0) {
           text += `Tool calls made:\n`;
           for (const tc of m.tool_calls) {
             text += `- ${tc.name}(${JSON.stringify(tc.args, null, 2)})\n`;
@@ -686,9 +530,7 @@ export async function runAgent(userId: string, projectId: string, conversationSt
     ];
   }
 
-
   // Persist conversation history
-  // conversationState.messages.push(...result.messages);
   conversationState.llmCalls = result.llmCalls;
 
   //lets send the human msg as well to the streams
@@ -700,23 +542,9 @@ export async function runAgent(userId: string, projectId: string, conversationSt
     }))
   }
 
-  // Get ONLY the AI message that contains tool calls (probably earlier in sequence)
-  // const aiWithTools = [...result.messages]
-  //   .reverse()
-  //   .find(m => m._getType() === "ai" && m.tool_calls?.length);
-
-  // if (aiWithTools?.tool_calls?.length) {
-  //   for (const tc of aiWithTools.tool_calls) {
-  //     client?.send(JSON.stringify({
-  //       type: "tool_call",
-  //       name: tc.name,
-  //       args: tc.args
-  //     }));
-  //   }
-  // }
   // FIXED: Get ALL AI messages with tool calls (not just first one)
   const allToolCalls = result.messages
-    .filter(m => m._getType() === "ai" && m.tool_calls?.length > 0)
+    .filter(m => m.getType() === "ai" && m.tool_calls?.length > 0)
     .flatMap(m => m.tool_calls || []);
 
   console.log("Total tool calls to send:", allToolCalls.length);
