@@ -33,10 +33,10 @@ export async function runAgent(userId: string, projectId: string, conversationSt
   //   temperature: 1
   // })
 
-    const llm = new ChatAnthropic({
-    model: "claude-sonnet-4-5-20250929",
-    temperature: 0,
-  });
+  //   const llm = new ChatAnthropic({
+  //   model: "claude-sonnet-4-5-20250929",
+  //   temperature: 0,
+  // });
 
 
   const summariserLLM = new ChatGoogleGenerativeAI({

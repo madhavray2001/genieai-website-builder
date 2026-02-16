@@ -3,9 +3,10 @@
 import * as React from "react"
 
 import { Button } from "@/components/ui/button"
-import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group"
+import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput, InputGroupTextarea } from "@/components/ui/input-group"
 import { useParams, useRouter } from "next/navigation"
 import { signIn, useSession } from "next-auth/react"
+import { LuSquareArrowUp } from "react-icons/lu";
 
 interface PromptInputProps {
   type: 'primary' | 'secondary'
@@ -18,7 +19,6 @@ export function PromptInput({ initialPrompt, prompt, type, params }: PromptInput
   const { data: session, status } = useSession();
   const [value, setValue] = React.useState("")
   const [submitting, setSubmitting] = React.useState(false)
-  const [visibility, setVisibility] = React.useState<"public" | "private">("public")
 
   const para = useParams();
   const projectId = para?.id;
@@ -87,104 +87,42 @@ export function PromptInput({ initialPrompt, prompt, type, params }: PromptInput
   }
 
   return (
-    <form onSubmit={onSubmit} className="w-full">
+    <form onSubmit={onSubmit} className="w-full ">
       <label htmlFor="user-prompt" className="sr-only">
-        Describe what you want to build
+        Ask Genie to create...
       </label>
 
-      <InputGroup className="h-20">
-        <InputGroupAddon align="inline-start">
-          <InputGroupButton
-            aria-label="Add attachments"
-            onClick={(e) => {
-              e.preventDefault()
-              fileRef.current?.click()
-            }}
-            title="Attachments"
-          >
-            {/* simple paperclip icon */}
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="size-4">
-              <path
-                strokeWidth="1.75"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M21.44 11.05 12.5 20a5.5 5.5 0 0 1-7.78-7.78l9-9a3.5 3.5 0 0 1 4.95 4.95l-9 9a1.5 1.5 0 0 1-2.12-2.12l8.3-8.3"
-              />
-            </svg>
-            <span className="sr-only">Attachments</span>
-          </InputGroupButton>
+<InputGroup
+  className="relative bg-[#121212] border border-[#292929] focus-within:border-[#484747] transition-all px-4 pt-3 pb-10 rounded-xl"
+>
+  <InputGroupTextarea
+    id="user-prompt"
+    value={value}
+    onChange={(e) => setValue(e.target.value)}
+    placeholder="Ask Genie to create..."
+    aria-label="Prompt"
+    disabled={submitting}
+    rows={1}
+    className="w-full font-inter resize-none bg-transparent !text-base leading-normal overflow-hidden p-0 !m-0 min-h-[50px]"
+  />
 
-          <InputGroupButton
-            aria-label="Add more context"
-            title="Add more"
-            onClick={(e) => {
-              e.preventDefault()
-              // placeholder for additional fields/modules
-              console.log("[v0] plus action clicked")
-            }}
-          >
-            <span className="text-base leading-none">+</span>
-          </InputGroupButton>
-        </InputGroupAddon>
+  <button
+    type="submit"
+    disabled={!value.trim()}
+    className="absolute bottom-2 right-2 cursor-pointer rounded-md bg-transparent hover:bg-[#1f1f1f] transition   disabled:cursor-not-allowed
+    disabled:opacity-40
+    disabled:hover:bg-transparent"
+  >
+    <LuSquareArrowUp
+      className="size-7 text-neutral-300 hover:text-white transition"
+      strokeWidth={0.8}
+    />
+  </button>
+</InputGroup>
 
-        <InputGroupInput
-          id="user-prompt"
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          placeholder="Describe what you want to build"
-          aria-label="Prompt"
-          disabled={submitting}
-          className="h-20 text-base md:text-lg"
-        />
 
-        <InputGroupAddon align="inline-end" className="gap-2">
-          <div
-            role="group"
-            aria-label="Visibility"
-            className="inline-flex items-center gap-0 rounded-full border border-border p-0.5"
-          >
-            <Button
-              type="button"
-              variant={visibility === "public" ? "default" : "ghost"}
-              size="icon"
-              className="h-7 w-7 rounded-full"
-              aria-pressed={visibility === "public"}
-              aria-label="Public"
-              onClick={() => setVisibility("public")}
-              title="Public"
-            >
-              {/* globe icon */}
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="size-3.5">
-                <path d="M12 3a9 9 0 1 0 0 18a9 9 0 0 0 0-18Z" strokeWidth="1.75" />
-                <path d="M3 12h18" strokeWidth="1.75" />
-                <path d="M12 3c3 3.5 3 14.5 0 18C9 17.5 9 6.5 12 3Z" strokeWidth="1.75" />
-              </svg>
-            </Button>
-            <Button
-              type="button"
-              variant={visibility === "private" ? "default" : "ghost"}
-              size="icon"
-              className="h-7 w-7 rounded-full"
-              aria-pressed={visibility === "private"}
-              aria-label="Private"
-              onClick={() => setVisibility("private")}
-              title="Private"
-            >
-              {/* lock icon */}
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="size-3.5">
-                <rect x="4.75" y="10" width="14.5" height="9.5" rx="2" strokeWidth="1.75" />
-                <path d="M8 10V7.5a4 4 0 1 1 8 0V10" strokeWidth="1.75" />
-              </svg>
-            </Button>
-          </div>
 
-          <InputGroupButton type="submit" variant="default" size="sm" disabled={submitting} className="px-3">
-            {submitting ? "Thinking…" : "Generate"}
-          </InputGroupButton>
-        </InputGroupAddon>
-      </InputGroup>
-
-      <input ref={fileRef} type="file" multiple hidden aria-label="Attachments" />
+    <input ref={fileRef} type="file" multiple hidden aria-label="Attachments" />
     </form>
   )
 }

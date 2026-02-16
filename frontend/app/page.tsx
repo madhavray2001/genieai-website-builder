@@ -4,39 +4,40 @@ import { PromptInput } from "@/components/prompt-input"
 import { Navbar } from "@/components/navbar"
 import { useEffect, useState } from "react"
 import { useSession } from "next-auth/react"
-import {useRouter } from "next/navigation"
-import { CardDemo } from "@/components/ProjectCard"
-import { projects } from "./UsersProject"
+import { useRouter } from "next/navigation"
+import { AppSidebar } from "@/components/ui/app-sidebar"
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 
-interface Project{
-  id:string;
-  title:string;
-  initialPrompt:string;
+interface Project {
+  id: string;
+  title: string;
+  initialPrompt: string;
   createdAt: string;
 }
 
 export default function HomePage() {
-  const {data:session, status} = useSession();
+  const { data: session, status } = useSession();
   const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([])
-
-  useEffect(()=>{
-    const handlePendingProject = async ()=>{
-      if(status=== 'authenticated' && session.user.id){
+  
+  useEffect(() => {
+    const handlePendingProject = async () => {
+      if (status === 'authenticated' && session?.user?.id) {
         const pending = sessionStorage.getItem('pendingProject')
-        if(pending){
-          const {projectId, initialPrompt} = JSON.parse(pending);
+        if (pending) {
+          const { projectId, initialPrompt } = JSON.parse(pending);
           console.log("this is the intial prompt", initialPrompt);
-          sessionStorage.removeItem('pendingProject'); //cleaning up after extracting
+          sessionStorage.removeItem('pendingProject');
           try {
             await fetch(`http://localhost:5000/api/project?id=${projectId}`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json'
               },
-              body: JSON.stringify({ 
+              body: JSON.stringify({
                 initialPrompt: initialPrompt,
-                userId:session.user.id })
+                userId: session.user.id
+              })
             })
             router.push(`/project/${projectId}`)
           } catch (error) {
@@ -46,15 +47,13 @@ export default function HomePage() {
       }
     }
 
-    const fetchProjects = async()=>{
-      if(status ==='authenticated' && session.user.id){
-        // setLoading(true)
+    const fetchProjects = async () => {
+      if (status === 'authenticated' && session?.user?.id) {
         try {
-          const res = await fetch (`http://localhost:5000/api/projects/${session.user.id}`)
+          const res = await fetch(`http://localhost:5000/api/projects/${session.user.id}`)
           const data = await res.json();
           setProjects(data.projects || [])
           console.log("fetching projects:", data.projects);
-          
         } catch (error) {
           console.error("Error fetching projects", error)
         }
@@ -63,56 +62,97 @@ export default function HomePage() {
 
     handlePendingProject();
     fetchProjects();
-    
-  },[status, session])
+  }, [status, session, router])
 
   return (
-    <div>
-    <div
-      className="relative min-h-screen overflow-x-hidden overflow-y-auto bg-background text-foreground"
-      style={
-        {
-          "--background": "oklch(0 0 0)",
-          "--foreground": "oklch(1 0 0)",
-        } as React.CSSProperties
-      }
-    >
+    <div className="h-screen overflow-hidden">
       <div
-        aria-hidden="true"
-        className="pointer-events-none absolute right-0 top-0 h-[32rem] w-[32rem] -translate-y-1/3 translate-x-1/4 rounded-full opacity-25"
-        style={{
-          background:
-            "radial-gradient(50% 50% at 50% 50%, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.08) 40%, rgba(255,255,255,0) 70%)",
-        }}
-      />
-
-      <main>
-        <Navbar />
-        <section className="grid min-h-[100svh] place-items-center px-6">
-          <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-8 text-center">
-            <h1 className="text-balance text-3xl font-black leading-tight tracking-tight md:text-4xl lg:text-5xl">
-              Ask and it shall be given to you
-            </h1>
-
-            <p className="text-pretty text-base text-muted-foreground md:text-lg">
-              A minimal, modern starting point inspired by v0 and Lovable. Plain background, clean lines, and a focus on
-              your idea.
-            </p>
-
-            <div className="w-full max-w-2xl">
-              <PromptInput initialPrompt={''} type={'primary'} />
-            </div>
-
-            <p className="text-sm text-muted-foreground">Start with a simple idea. We’ll take it from there.</p>
-          </div>
-        </section>
-      </main>
-      </div>
-      <div className="savedProjects flex m-8 gap-4">
-        {projects.map(project => (
-        <CardDemo key={project.id} id={project.id} title={project.title} />
-        ))}
+        className="relative overflow-x-hidden bg-black text-foreground h-full"
+        style={
+          {
+            "--background": "oklch(0 0 0)",
+            "--foreground": "oklch(1 0 0)",
+          } as React.CSSProperties
+        }
+      >
+        {/* In the purple glow*/}
+        {/* <div
+          aria-hidden="true"
+          className="pointer-events-none fixed bottom-0 right-0 h-[45rem] w-[45rem] translate-y-1/3 translate-x-1/3 rounded-full opacity-30 blur-3xl"
+          style={{
+            background:
+              "radial-gradient(circle, rgba(139, 92, 246, 0.4) 0%, rgba(168, 85, 247, 0.3) 25%, rgba(217, 70, 239, 0.2) 50%, rgba(236, 72, 153, 0.1) 75%, transparent 100%)",
+          }}
+        /> */}
         
+        {/* slight white glow */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none fixed bottom-0 right-0 h-[45rem] w-[45rem] translate-y-1/3 translate-x-1/3 rounded-full opacity-30 blur-3xl"
+          style={{
+            background:
+            
+              "radial-gradient(circle, rgba(255, 255, 255, 0.25) 0%, rgba(255, 255, 255, 0.15) 25%, rgba(255, 255, 255, 0.08) 50%, rgba(255, 255, 255, 0.03) 75%, transparent 100%)",
+          }}
+        />
+        
+        {/* grid overlay */}
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:64px_64px] pointer-events-none" />
+        
+        {status === 'authenticated' ? (
+          <SidebarProvider>
+            <div className="flex h-screen w-full relative z-10">
+              <AppSidebar />
+              
+              <main className="flex-1 grid grid-rows-[auto_auto_1fr] overflow-hidden">
+                <Navbar />
+                
+                <div className="px-6 pt-3">
+                  <SidebarTrigger className="bg-neutral-800 hover:bg-white p-2 rounded-md cursor-pointer transition-colors" />
+                </div>
+                
+                <section className="flex items-center justify-center px-6 overflow-auto">
+                  <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-8 text-center py-8">
+                    <h1 className="font-inter text-balance text-3xl font-black tracking-[-0.03em] md:text-4xl lg:text-5xl lg:font-semibold text-white">
+                      Ask and it shall be given to you
+                    </h1>
+
+                    <p className="text-pretty text-base text-neutral-400 md:text-lg font-inter leading-tight tracking-[-0.03em]">
+                      Describe your vision. Watch Genie shape it into something real — beautifully, effortlessly.
+                    </p>
+
+                    <div className="w-full max-w-2xl">
+                      <PromptInput initialPrompt={''} type={'primary'} />
+                    </div>
+
+                    <p className="text-sm text-neutral-500 font-inter">Start with a simple idea. We'll take it from there.</p>
+                  </div>
+                </section>
+              </main>
+            </div>
+          </SidebarProvider>
+        ) : (
+          <main className="grid grid-rows-[auto_1fr] h-screen relative z-10">
+            <Navbar />
+            <section className="flex items-center justify-center px-6">
+              <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-8 text-center">
+                <h1 className="font-inter text-balance text-3xl font-black tracking-[-0.03em] md:text-4xl lg:text-5xl lg:font-semibold text-white">
+                  Ask and it shall be given to you
+                </h1>
+
+                <p className="text-pretty text-base text-neutral-400 md:text-lg font-inter leading-tight tracking-[-0.03em]">
+                  Describe your vision. Watch Genie shape it into something real — beautifully, effortlessly.
+                </p>
+
+                <div className="w-full max-w-2xl">
+                  <PromptInput initialPrompt={''} type={'primary'} />
+                </div>
+
+                <p className="text-sm text-neutral-500 font-inter">Start with a simple idea. We'll take it from there.</p>
+              </div>
+            </section>
+          </main>
+        )}
       </div>
     </div>
   )
