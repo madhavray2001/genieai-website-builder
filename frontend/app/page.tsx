@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation"
 import { AppSidebar } from "@/components/ui/app-sidebar"
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 
-interface Project {
+export interface Project {
   id: string;
   title: string;
   initialPrompt: string;
@@ -102,7 +102,7 @@ export default function HomePage() {
         {status === 'authenticated' ? (
           <SidebarProvider>
             <div className="flex h-screen w-full relative z-10">
-              <AppSidebar />
+              <AppSidebar projects={projects} />
               
               <main className="flex-1 grid grid-rows-[auto_auto_1fr] overflow-hidden">
                 <Navbar />

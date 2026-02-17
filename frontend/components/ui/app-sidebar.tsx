@@ -12,8 +12,13 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
 import { Home, FolderOpen, Settings, Plus } from "lucide-react"
+import ProjectList from "../ProjectList"
+import { Project } from "@/app/page"
 
-export function AppSidebar() {
+interface ProjectList{
+    projects:Project[]
+}
+export function AppSidebar({projects}:ProjectList) {
   return (
     <Sidebar>
       <SidebarHeader className="border-b border-sidebar-border p-4">
@@ -58,6 +63,9 @@ export function AppSidebar() {
                   <span>New Project</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
+                  {projects.map(project=>(
+                  <ProjectList key={project.id} id={project.id} title=  {project.title}/>
+                  ))}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
