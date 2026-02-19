@@ -2,7 +2,7 @@
 import type React from "react"
 import { PromptInput } from "@/components/prompt-input"
 import { Navbar } from "@/components/navbar"
-import { useEffect, useState } from "react"
+import { createContext, useContext, useEffect, useRef, useState } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { AppSidebar } from "@/components/ui/app-sidebar"
@@ -15,10 +15,17 @@ export interface Project {
   createdAt: string;
 }
 
+export const PromptFocusContext = createContext<(()=>void) | null>(null)
+
 export default function HomePage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([])
+  const promptInputRef = useRef<{focus:()=>void}>(null)
+
+  const focusPromptInput=()=>{
+    promptInputRef.current?.focus()
+  }
   
   useEffect(() => {
     const handlePendingProject = async () => {
@@ -65,6 +72,7 @@ export default function HomePage() {
   }, [status, session, router])
 
   return (
+    <PromptFocusContext.Provider value={focusPromptInput}>
     <div className="h-screen overflow-hidden">
       <div
         className="relative overflow-x-hidden bg-black text-foreground h-full"
@@ -122,7 +130,7 @@ export default function HomePage() {
                     </p>
 
                     <div className="w-full max-w-2xl">
-                      <PromptInput initialPrompt={''} type={'primary'} />
+                      <PromptInput initialPrompt={''} type={'primary'} ref={promptInputRef}/>
                     </div>
 
                     <p className="text-sm text-neutral-500 font-inter">Start with a simple idea. We'll take it from there.</p>
@@ -155,5 +163,6 @@ export default function HomePage() {
         )}
       </div>
     </div>
+    </PromptFocusContext.Provider>
   )
 }

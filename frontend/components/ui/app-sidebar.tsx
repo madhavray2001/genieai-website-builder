@@ -13,12 +13,18 @@ import {
 } from "@/components/ui/sidebar"
 import { Home, FolderOpen, Settings, Plus } from "lucide-react"
 import ProjectList from "../ProjectList"
-import { Project } from "@/app/page"
+import { Project, PromptFocusContext } from "@/app/page"
+import { useContext } from "react"
 
 interface ProjectList{
     projects:Project[]
 }
 export function AppSidebar({projects}:ProjectList) {
+    const focusPromptInput = useContext(PromptFocusContext)
+
+     const handleNewProject = () => {
+      focusPromptInput?.()
+    }
   return (
     <Sidebar>
       <SidebarHeader className="border-b border-sidebar-border p-4">
@@ -58,7 +64,7 @@ export function AppSidebar({projects}:ProjectList) {
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton>
+                <SidebarMenuButton onClick={handleNewProject}>
                   <Plus />
                   <span>New Project</span>
                 </SidebarMenuButton>

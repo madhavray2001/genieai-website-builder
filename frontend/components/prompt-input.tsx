@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-
+import { forwardRef, useImperativeHandle, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput, InputGroupTextarea } from "@/components/ui/input-group"
 import { useParams, useRouter } from "next/navigation"
@@ -15,7 +15,17 @@ interface PromptInputProps {
   params?: any
 }
 
-export function PromptInput({ initialPrompt, prompt, type, params }: PromptInputProps) {
+export const PromptInput = forwardRef<{ focus: () => void }, PromptInputProps>(
+  (props, ref) => {
+  const { type } = props
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  useImperativeHandle(ref, ()=>({
+    focus:()=>{
+      textareaRef.current?.focus()
+    }
+  }))
+  
   const { data: session, status } = useSession();
   const [value, setValue] = React.useState("")
   const [submitting, setSubmitting] = React.useState(false)
@@ -92,37 +102,36 @@ export function PromptInput({ initialPrompt, prompt, type, params }: PromptInput
         Ask Genie to create...
       </label>
 
-<InputGroup
-  className="relative bg-[#121212] border border-[#292929] focus-within:border-[#484747] transition-all px-4 pt-3 pb-10 rounded-xl"
->
-  <InputGroupTextarea
-    id="user-prompt"
-    value={value}
-    onChange={(e) => setValue(e.target.value)}
-    placeholder="Ask Genie to create..."
-    aria-label="Prompt"
-    disabled={submitting}
-    rows={1}
-    className="w-full font-inter resize-none bg-transparent !text-base leading-normal overflow-hidden p-0 !m-0 min-h-[50px]"
-  />
+      <InputGroup
+        className="relative bg-[#121212] border border-[#292929] focus-within:border-[#484747] transition-all px-4 pt-3 pb-10 rounded-xl"
+      >
+        <InputGroupTextarea
+          ref={textareaRef}
+          id="user-prompt"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder="Ask Genie to create..."
+          aria-label="Prompt"
+          disabled={submitting}
+          rows={1}
+          className="w-full font-inter resize-none bg-transparent !text-base leading-normal overflow-hidden p-0 !m-0 min-h-[50px]"
+        />
 
-  <button
-    type="submit"
-    disabled={!value.trim()}
-    className="absolute bottom-2 right-2 cursor-pointer rounded-md bg-transparent hover:bg-[#1f1f1f] transition   disabled:cursor-not-allowed
-    disabled:opacity-40
-    disabled:hover:bg-transparent"
-  >
-    <LuSquareArrowUp
-      className="size-7 text-neutral-300 hover:text-white transition"
-      strokeWidth={0.8}
-    />
-  </button>
-</InputGroup>
+        <button
+          type="submit"
+          disabled={!value.trim()}
+          className="absolute bottom-2 right-2 cursor-pointer rounded-md bg-transparent hover:bg-[#1f1f1f] transition disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+        >
+          <LuSquareArrowUp
+            className="size-7 text-neutral-300 hover:text-white transition"
+            strokeWidth={0.8}
+          />
+        </button>
+      </InputGroup>
 
-
-
-    <input ref={fileRef} type="file" multiple hidden aria-label="Attachments" />
+      <input ref={fileRef} type="file" multiple hidden aria-label="Attachments" />
     </form>
   )
-}
+})
+
+PromptInput.displayName = "PromptInput"
