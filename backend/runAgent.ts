@@ -28,10 +28,12 @@ type State = z.infer<typeof MessageState>;
 
 export async function runAgent(userId: string, projectId: string, conversationState: State, client: WebSocket, sandbox: Sandbox):Promise<void> {
 
-  // const llm = new ChatGoogleGenerativeAI({
-  //   model: "gemini-2.5-pro",
-  //   temperature: 1
-  // })
+  console.log("RUNNING LLM")
+
+  const llm = new ChatGoogleGenerativeAI({
+    model: "gemini-2.5-flash",
+    temperature: 1
+  })
 
   //   const llm = new ChatAnthropic({
   //   model: "claude-sonnet-4-5-20250929",
@@ -534,13 +536,13 @@ export async function runAgent(userId: string, projectId: string, conversationSt
   conversationState.llmCalls = result.llmCalls;
 
   //lets send the human msg as well to the streams
-  const humanMessages = result.messages.filter((m: BaseMessage) => m.getType() === 'human');
-  for (const human of humanMessages) {
-    client?.send(JSON.stringify({
-      type: 'human',
-      content: human.content
-    }))
-  }
+  // const humanMessages = result.messages.filter((m: BaseMessage) => m.getType() === 'human');
+  // for (const human of humanMessages) {
+  //   client?.send(JSON.stringify({
+  //     type: 'human',
+  //     content: human.content
+  //   }))
+  // }
 
   // FIXED: Get ALL AI messages with tool calls (not just first one)
   const allToolCalls = result.messages

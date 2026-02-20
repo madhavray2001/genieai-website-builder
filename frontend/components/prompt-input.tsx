@@ -36,6 +36,16 @@ export const PromptInput = forwardRef<{ focus: () => void }, PromptInputProps>(
   const fileRef = React.useRef<HTMLInputElement>(null)
   const router = useRouter();
 
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      if (value.trim()) {
+        // Trigger form submission
+        e.currentTarget.form?.requestSubmit()
+      }
+    }
+  }
+
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const id = crypto.randomUUID();
@@ -80,13 +90,17 @@ export const PromptInput = forwardRef<{ focus: () => void }, PromptInputProps>(
     } else {
       console.log("reached the second page");
       console.log("reached to secondary phase!", projectId);
+
+      //clearing input immediately for better ux
+      const currentValue = value;
+      setValue('');
       try {
         const res = await fetch(`http://localhost:5000/conversation?id=${projectId}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ prompt: value, userId})
+          body: JSON.stringify({ prompt: currentValue, userId})
         })
         const data = await res.json();
         console.log("data from prompt api", data.msg)
@@ -94,10 +108,11 @@ export const PromptInput = forwardRef<{ focus: () => void }, PromptInputProps>(
         console.log('Error giving prompt', error);
       }
     }
+    // setValue('')
   }
 
   return (
-    <form onSubmit={onSubmit} className="w-full ">
+    <form onSubmit={onSubmit} className="w-full">
       <label htmlFor="user-prompt" className="sr-only">
         Ask Genie to create...
       </label>
@@ -110,7 +125,8 @@ export const PromptInput = forwardRef<{ focus: () => void }, PromptInputProps>(
           id="user-prompt"
           value={value}
           onChange={(e) => setValue(e.target.value)}
-          placeholder="Ask Genie to create..."
+          placeholder={type=='primary'? "Ask Genie to create..." : "Ask a follow up..."}
+          onKeyDown={handleKeyDown}
           aria-label="Prompt"
           disabled={submitting}
           rows={1}
@@ -119,7 +135,7 @@ export const PromptInput = forwardRef<{ focus: () => void }, PromptInputProps>(
 
         <button
           type="submit"
-          disabled={!value.trim()}
+          disabled={!value.trim() || submitting}
           className="absolute bottom-2 right-2 cursor-pointer rounded-md bg-transparent hover:bg-[#1f1f1f] transition disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
         >
           <LuSquareArrowUp

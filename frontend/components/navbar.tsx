@@ -10,7 +10,6 @@ export function Navbar() {
     <header className="border-b border-[#292929]">
       <div className="flex items-center justify-between px-4 py-4">
         
-        
         <Image
           src="/logo.svg"
           alt="Logo"

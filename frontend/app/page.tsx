@@ -7,6 +7,7 @@ import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { AppSidebar } from "@/components/ui/app-sidebar"
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
+import { Spinner, SpinnerCustom } from "@/components/ui/spinner"
 
 export interface Project {
   id: string;
@@ -22,7 +23,9 @@ export default function HomePage() {
   const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([])
   const promptInputRef = useRef<{focus:()=>void}>(null)
+  const [loading, setLoading] = useState(false);
 
+  
   const focusPromptInput=()=>{
     promptInputRef.current?.focus()
   }
@@ -32,6 +35,8 @@ export default function HomePage() {
       if (status === 'authenticated' && session?.user?.id) {
         const pending = sessionStorage.getItem('pendingProject')
         if (pending) {
+          setLoading(true);
+          // await new Promise(resolve => setTimeout(resolve, 100000));
           const { projectId, initialPrompt } = JSON.parse(pending);
           console.log("this is the intial prompt", initialPrompt);
           sessionStorage.removeItem('pendingProject');
@@ -53,7 +58,7 @@ export default function HomePage() {
         }
       }
     }
-
+    
     const fetchProjects = async () => {
       if (status === 'authenticated' && session?.user?.id) {
         try {
@@ -66,11 +71,16 @@ export default function HomePage() {
         }
       }
     }
-
+    
     handlePendingProject();
     fetchProjects();
   }, [status, session, router])
-
+  
+  if(loading){
+    return(
+      <SpinnerCustom />
+    )
+  }
   return (
     <PromptFocusContext.Provider value={focusPromptInput}>
     <div className="h-screen overflow-hidden">

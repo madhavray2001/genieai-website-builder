@@ -78,11 +78,11 @@ app.post("/prompt", async (req: express.Request, res: express.Response) => {
 
     const client: WebSocket = users.get(userId)!;
 
-    // console.log("conversation state to the llm with initPrompt only:", conversationState)
-    await runAgent(userId, projectId, conversationState, client, sandbox)
-
-    //saving to s3
-    await saveProject(projectId, userId);
+      //sending only the new message via websocket
+    client.send(JSON.stringify({
+      type:'human',
+      content:prompt
+    }))
 
     await prisma.conversationHistory.create({
       data: {
@@ -92,6 +92,12 @@ app.post("/prompt", async (req: express.Request, res: express.Response) => {
         contents: prompt
       }
     })
+    // console.log("conversation state to the llm with initPrompt only:", conversationState)
+    await runAgent(userId, projectId, conversationState, client, sandbox)
+
+    //saving to s3
+    await saveProject(projectId, userId);
+
     // const ws = users.get(userId);
     // ws?.send(JSON.stringify({ type: "log", text: 'test message' }))
 
@@ -128,31 +134,6 @@ app.post('/conversation', async (req: express.Request, res: express.Response) =>
         contents: prompt
       }
     })
-    // const convo = conversation.contents;
-    // --------------------------------------------------------
-    // if (!globalStore.has(userId)) {
-    //   const projectState: ProjectState = new Map();
-    //   projectState.set(projectId, {
-    //     messages: [],
-    //     llmCalls: 0,
-    //   });
-
-    //   globalStore.set(userId, projectState);
-    // }
-    // ----------------------------------------------------------------
-    //     if(!globalStore.has(userId)){
-    //       return res.status(400).json({msg:"user doesnt have access to this project", globalStore})
-    //     }
-
-    //     let projectState = globalStore.get(userId);
-    //     //  ADD THIS CHECK:
-    // if (!projectState || !projectState.has(projectId)) {
-    //     return res.status(404).json({
-    //         msg: "Project not found. Start a new conversation from /prompt first.",
-    //         userId,
-    //         projectId
-    //     })
-    // }
 
     // Initialize globalStore if not exists (after server restart)
     if (!globalStore.has(userId)) {
@@ -179,6 +160,12 @@ app.post('/conversation', async (req: express.Request, res: express.Response) =>
     conversationState.messages.push(new HumanMessage(prompt))
 
     const client: WebSocket = users.get(userId)!;
+
+    //sending only the new message via websocket
+    client.send(JSON.stringify({
+      type:'human',
+      content:prompt
+    }))
 
     // console.log("conversation state to the llm with the follow up message:", conversationState)
 

@@ -1,14 +1,12 @@
 import { Message } from '@/app/project/[id]/page'
 import React from 'react'
 
-const HumanMsgBox = ({messages}:{messages:Message[]}) => {
+const HumanMsgBox = ({message}:{message:Message}) => {
   return (
-    <div className=' m-4 ml-32 p-4 border border-white text-white'>
-      {messages.map((msg, index)=>(
-        <div key={index}>
-          {msg.content}
-        </div>
-      ))}
+    <div className='flex justify-end mb-4 mr-3'>
+      <div className='max-w-[70%] p-4 bg-[#121212] border border-neutral-800 rounded-lg'>
+        {message.content}
+      </div>
     </div>
   )
 }

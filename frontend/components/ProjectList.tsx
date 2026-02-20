@@ -1,7 +1,9 @@
 import { Message } from '@/app/project/[id]/page';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import React from 'react'
+import React, { useState } from 'react'
+import { Spinner } from "@/components/ui/spinner"
+import { SpinnerButton } from './ui/spinnerButton';
 
 // Add type for database message
 type DBMessage = {
@@ -18,12 +20,20 @@ type DBMessage = {
 const ProjectList = ({id, title}:{id:string, title:string}) => {
     const router = useRouter()
     const { data: session } = useSession();
+    const [loading, setLoading] = useState(false)
+
+    if(loading){
+        return(
+            <SpinnerButton />
+        )
+    }
 
     const openProject = async () => {
         try {
+            setLoading(true);
             const response = await fetch(`http://localhost:5000/api/project/load/${id}?userId=${session?.user.id}`);
-
             const data = await response.json();
+            console.log("Checking data fetched by loaded project api", data)
             //transforming the db format of msg to the fe format
             const transformedMessages: Message[] = data.conversation.map((dbMsg: DBMessage) => {
                 //mapping USER/ASSISTANT to human/ai
@@ -56,13 +66,16 @@ const ProjectList = ({id, title}:{id:string, title:string}) => {
 
             sessionStorage.setItem(`loadedProject`, JSON.stringify({
                 projectUrl:data.projectUrl,
-        conversation:transformedMessages
+                conversation:transformedMessages
             }));
 
             router.push(`project/${id}`)
         } catch (error) {
             console.log("Error loading project", error);
         }
+        // finally{
+        //     setLoading(false);
+        // }
     }
     return (
         <div onClick={openProject} className='hover:bg-neutral-800 transition-colors p-2 rounded cursor-pointer'>
