@@ -44,10 +44,18 @@ app.post("/prompt", async (req: express.Request, res: express.Response) => {
   const projectId = req.query.projectId as string;
   console.log("prompt by user:", prompt);
 
+  const client: WebSocket = users.get(userId)!;
+  
+  //sending only the new message via websocket
+client.send(JSON.stringify({
+  type:'human',
+  content:prompt
+}))
+
   try {
     const sandbox = await getSandbox(projectId, userId);
     const host = sandbox.getHost(5173);
-
+    
     if (!globalStore.has(userId)) {
       // console.log("pushing the userId in the globalstore")
       const projectState: ProjectState = new Map();
@@ -55,13 +63,13 @@ app.post("/prompt", async (req: express.Request, res: express.Response) => {
         messages: [],
         llmCalls: 0,
       });
-
+      
       globalStore.set(userId, projectState);
       // console.log("checking globalstore", globalStore);
     }
-
+    
     let projectState = globalStore.get(userId);
-
+    
     //initialising new project if the project doesnt exist
     if(!projectState?.has(projectId)){
       console.log(`Initialising new project ${projectId} for user ${userId}`);
@@ -70,19 +78,12 @@ app.post("/prompt", async (req: express.Request, res: express.Response) => {
         llmCalls:0
       })
     }
-
+    
     let conversationState: ConversationState = projectState?.get(projectId)!;
     conversationState.messages.push(new HumanMessage(prompt))
     // console.log("checking global store with conversationState", globalStore)
     // console.log("checking the conversation state", conversationState);
-
-    const client: WebSocket = users.get(userId)!;
-
-      //sending only the new message via websocket
-    client.send(JSON.stringify({
-      type:'human',
-      content:prompt
-    }))
+    
 
     await prisma.conversationHistory.create({
       data: {

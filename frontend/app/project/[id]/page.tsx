@@ -18,12 +18,21 @@ import { useSession } from 'next-auth/react';
 import { Navbar } from '@/components/navbar';
 import { useRouter } from 'next/navigation';
 import { DotLottiePlayer } from '@dotlottie/react-player';
+import ThinkingStream from '@/components/ThinkingStream';
+import BuildingStream from '@/components/BuildingStream';
+import ValidatingStream from '@/components/ValidatingStream';
+import DeliveringStream from '@/components/DeliveringStream';
 
 
 export type Message = {
     type: 'human' | 'ai' | 'tool_call' | 'tool_result';
     content: string;
     toolCall?: any;
+}
+
+export type Stream = {
+    type:'thinking'|'building'|'validating',
+    content:string;
 }
 
 interface PageProps {
@@ -57,6 +66,7 @@ const page = ({ params, prompt }: PageProps) => {
     const [fileTree, setFileTree] = useState<FileNode[]>([]);
     const [selectedFile, setSelectedFile] = useState<FileNode | null>(null);
     const [iframeLoading, setIframeLoading] = useState(true);
+    const [streams, setStreams] = useState<Stream[]>([])
 
     // When messages update, rebuild file tree
     useEffect(() => {
@@ -151,7 +161,7 @@ const page = ({ params, prompt }: PageProps) => {
         ws.onmessage = (e: MessageEvent) => {
             const data = JSON.parse(e.data);
 
-            console.log("Received:", data);
+            console.log("Received data from ws:", data);
 
             switch (data.type) {
                 case "human":
@@ -201,6 +211,38 @@ const page = ({ params, prompt }: PageProps) => {
                     break;
                 }
 
+                case "thinking":
+                    console.log("trying to implement thinking stream...")
+                    setStreams(prev=>[...prev,{
+                        type:'thinking',
+                        content:data.content
+                    }]);
+                    break;
+
+                  case "building":
+                    console.log("trying to implement building stream...")
+                    setStreams(prev=>[...prev,{
+                        type:'building',
+                        content:data.content
+                    }]);
+                    break;
+                
+                  case "validating":
+                    console.log("trying to implement validating stream...")
+                    setStreams(prev=>[...prev,{
+                        type:'validating',
+                        content:data.content
+                    }]);
+                    break;
+
+                  case "delivering":
+                    console.log("trying to implement delivering stream...")
+                    setStreams(prev=>[...prev,{
+                        type:'delivering',
+                        content:data.content
+                    }]);
+                    break;
+
                 default:
                     console.log("Unknown:", data);
             }
@@ -247,10 +289,24 @@ const page = ({ params, prompt }: PageProps) => {
                                 if(msg.type==='human'){
                                     return <HumanMsgBox key={index} message={msg} />
                                 }else if(msg.type === 'ai'){
+                                    console.log("ai msg:", msg)
                                     return <AiMsgBox key={index} message={msg} />
                                 }
                                 return null
                             })}
+                            <div className='flex flex-col gap-3 text-sm text-neutral-400 ml-2'>
+                                {streams.map((stream, index)=>{
+                                    if(stream.type==='thinking'){
+                                        return<ThinkingStream key={index} stream={stream} />
+                                    }else if(stream.type==='building'){
+                                        return <BuildingStream key={index} stream={stream} />
+                                    }else if(stream.type==='validating'){
+                                        return <ValidatingStream key={index} stream={stream} />
+                                    }else if(stream.type ==='delivering'){
+                                        return <DeliveringStream key={index} stream={stream} />
+                                    }
+                                })}
+                            </div>
                         </div>
                         
                         <div className='flex-shrink-0 relative z-20'>
@@ -310,11 +366,11 @@ const page = ({ params, prompt }: PageProps) => {
                                     </div>
                                 </div>
                             </TabsContent>
-                            <TabsContent value="preview" className='h-full bg-black'>
-                                <div className='text-white h-full flex justify-center items-center relative'>
+                            <TabsContent value="preview" className='h-full bg-[#111111]'>
+                                <div className='text-white h-full flex justify-center items-center relative bg-[#111111]'>
                                     {/* Lottie Loader - shows when iframe is loading */}
                                     {iframeLoading && (
-                                        <div className='absolute inset-0 bg-black flex justify-center items-center z-10'>
+                                        <div className='absolute inset-0 bg-[#111111] flex justify-center items-center z-10'>
                                             <DotLottiePlayer
                                                 src="/loader.lottie"
                                                 loop

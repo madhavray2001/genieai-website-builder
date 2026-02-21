@@ -27,6 +27,9 @@ const MessageState = z.object({
 type State = z.infer<typeof MessageState>;
 
 export async function runAgent(userId: string, projectId: string, conversationState: State, client: WebSocket, sandbox: Sandbox):Promise<void> {
+  client.send(JSON.stringify({
+    type:'thinking',
+    content:"Thinking...."}))
 
   console.log("RUNNING LLM")
 
@@ -102,6 +105,10 @@ export async function runAgent(userId: string, projectId: string, conversationSt
 
       try {
         console.log(`Validating via Vite module transform: ${filePath}`);
+
+         client.send(JSON.stringify({
+    type:'validating',
+    content:"Validating...."}))
 
         // Let vite warm
         await new Promise((r) => setTimeout(r, 300));
@@ -254,6 +261,10 @@ export async function runAgent(userId: string, projectId: string, conversationSt
       
       client?.send(JSON.stringify(observation?.content));
 
+      client.send(JSON.stringify({
+    type:'building',
+    content:"Building...."}))
+
       const contentStr = typeof observation?.content === 'string'
         ? observation.content
         : JSON.stringify(observation?.content);
@@ -261,6 +272,7 @@ export async function runAgent(userId: string, projectId: string, conversationSt
       if (contentStr.includes("__VALIDATION_FAILED__")) {
         validationFailures++;
         console.log(`Validation failure #${validationFailures}`);
+       
       }
 
     } catch (error: any) {
@@ -308,6 +320,11 @@ export async function runAgent(userId: string, projectId: string, conversationSt
 
   //adding a node to give the final response to the user
   async function finalNode(state: State) {
+
+          //sending the delivering stream
+        client.send(JSON.stringify({
+        type:'delivering',
+        content:"Delivering...."}))
 
     //checking if we need to show the validation failure msg to the user 
     if ((state.validationFailures ?? 0) >= 3) {
