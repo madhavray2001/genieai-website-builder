@@ -31,7 +31,7 @@ export type Message = {
 }
 
 export type Stream = {
-    type:'thinking'|'building'|'validating',
+    type:'thinking'|'building'|'validating'|'delivering',
     content:string;
 }
 
@@ -67,6 +67,7 @@ const page = ({ params, prompt }: PageProps) => {
     const [selectedFile, setSelectedFile] = useState<FileNode | null>(null);
     const [iframeLoading, setIframeLoading] = useState(true);
     const [streams, setStreams] = useState<Stream[]>([])
+    const [isStreaming, setIsStreaming] = useState(true)
 
     // When messages update, rebuild file tree
     useEffect(() => {
@@ -172,6 +173,8 @@ const page = ({ params, prompt }: PageProps) => {
                     break;
 
                 case "ai":
+                    setIsStreaming(false);
+                    setStreams([]);
                     setMessages(prev => [...prev, {
                         type: 'ai',
                         content: data.content
@@ -212,6 +215,7 @@ const page = ({ params, prompt }: PageProps) => {
                 }
 
                 case "thinking":
+                    setIsStreaming(true)
                     console.log("trying to implement thinking stream...")
                     setStreams(prev=>[...prev,{
                         type:'thinking',
@@ -294,6 +298,8 @@ const page = ({ params, prompt }: PageProps) => {
                                 }
                                 return null
                             })}
+
+                            {isStreaming && (
                             <div className='flex flex-col gap-3 text-sm text-neutral-400 ml-2'>
                                 {streams.map((stream, index)=>{
                                     if(stream.type==='thinking'){
@@ -307,6 +313,7 @@ const page = ({ params, prompt }: PageProps) => {
                                     }
                                 })}
                             </div>
+                            )}
                         </div>
                         
                         <div className='flex-shrink-0 relative z-20'>
