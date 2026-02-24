@@ -114,15 +114,81 @@ router.get('/project/load/:id', async(req:express.Request, res:express.Response)
             }
         })
 
+        //getting fiels from sandbox after loading from project from s3
+         const result = await sandbox.commands.run(
+            'find /home/user/src -type f 2>/dev/null || echo ""',
+            { cwd: '/home/user' }
+        );
+
+        const filePaths = result.stdout.split('\n').filter(p=>p.trim() && p.startsWith('/home/user/src'));
+
+        const files = await Promise.all(
+            filePaths.map(async(path)=>{
+                try {
+                    const content = await sandbox.files.read(path);
+                    return{
+                        path:path,
+                        content:content.toString()
+                    };
+                } catch (error) {
+                    console.error(`Error reading ${path}:`, error)
+                    return null 
+                }
+            })
+        )
+
         return res.status(200).json({
             msg:"Project loaded successfully",
             projectUrl: `https://${host}`,
-            conversation
+            conversation,
+            files:files.filter(f=> f !== null)
         })
     } catch (error) {
         console.error("Error loading project", error);
         return res.status(500).json({msg:"Internal server error"})
     }
 })
+
+// router.get('/project/files/:id', async(req:express.Request, res:express.Response)=>{
+//     const {id: projectId} = req.params;
+//     const userId = req.query.userId as string;
+
+//     try {
+//         if(!userId){
+//             return res.status(400).json({msg:"userId is required"})
+//         }
+        
+//         const sandbox = await getSandbox(projectId as string, userId);
+
+//         const result = await sandbox.commands.run(
+//             'find /home/user -type f -not -path "*/node_modules/*" -not -path "*/.git/*" -not -path "*/dist/*"',
+//             { cwd: '/home/user' }
+//         );
+
+//         const filePaths = result.stdout.split('\n').filter(p=>p.trim());
+
+//         const files = await Promise.all(
+//             filePaths.map(async(path)=>{
+//                 try {
+//                     const content = await sandbox.files.read(path);
+//                     return{
+//                         path:path.replace('/home/user',''),
+//                         content:content.toString()
+//                     };
+//                 } catch (error) {
+//                     console.error(`Error reading ${path}:`, error)
+//                     return null 
+//                 }
+//             })
+//         )
+//         return res.status(200).json({
+//             msg:"Files fetched successfully",
+//             files:files.filter(f=>f !==null)
+//         });
+//     } catch (error) {
+//         console.error("Error fetching files", error);
+//         return res.status(500).json({msg:"INternal server error"});
+//     }
+// })
 
 export default router;

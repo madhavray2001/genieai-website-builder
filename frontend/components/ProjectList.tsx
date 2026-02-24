@@ -44,18 +44,6 @@ const ProjectList = ({id, title}:{id:string, title:string}) => {
                     }
                 }
 
-                //handling tool call type
-                if (dbMsg.type === "TOOL_CALL") {
-                    return {
-                        type: 'tool_call',
-                        content: `Tool-call: ${dbMsg.toolCall}`,
-                        toolCall: dbMsg.toolCall ? {
-                            name: dbMsg.toolCall,
-                            // will parse more details if needed
-                        } : undefined
-                    }
-                }
-
                 //fallback
                 return{
                     type:'ai',
@@ -63,10 +51,12 @@ const ProjectList = ({id, title}:{id:string, title:string}) => {
                 }
             });
             console.log("transformed messages", transformedMessages)
+            console.log("files from api", data.files)
 
             sessionStorage.setItem(`loadedProject`, JSON.stringify({
                 projectUrl:data.projectUrl,
-                conversation:transformedMessages
+                conversation:transformedMessages,
+                files:data.files
             }));
 
             router.push(`project/${id}`)

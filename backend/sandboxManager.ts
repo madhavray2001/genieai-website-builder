@@ -10,7 +10,7 @@ interface SandboxInfo {
 
 const activeSandboxes = new Map<string, SandboxInfo>();
 
-const SANDBOX_TIMEOUT = 30 * 60 * 1000; //lets set the timeout for 30 minutes
+const SANDBOX_TIMEOUT = 30 * 60 * 1000;
 
 export async function getSandbox(projectId: string, userId: string): Promise<Sandbox> {
   // const sandboxKey = `${userId}:${projectId}`;
@@ -27,7 +27,7 @@ export async function getSandbox(projectId: string, userId: string): Promise<San
       // return existing.sandbox;
 
       if(sandboxInfo.currentProjectId && sandboxInfo.currentProjectId !== projectId){
-        //now this means switching from one project to another
+        //switching from one project to another
         await saveProjectToS3(sandboxInfo.sandbox, userId, sandboxInfo.currentProjectId);
 
         //clearing the sandbox workspace to run new project 

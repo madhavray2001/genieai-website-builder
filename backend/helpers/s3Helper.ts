@@ -147,7 +147,7 @@ export async function loadProjectFromS3(
     await sandbox.commands.run(`mkdir -p ${tempDir}`);
 
 
-    // Convert Buffer → ArrayBuffer
+    // Converting Buffer to ArrayBuffer
     const arrayBuffer = new Uint8Array(tarBuffer).buffer;
     await sandbox.files.write(tarPath, arrayBuffer);
 

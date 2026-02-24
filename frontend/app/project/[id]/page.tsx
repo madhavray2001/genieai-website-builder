@@ -11,7 +11,7 @@ import {
 import { PromptInput } from '@/components/prompt-input';
 import HumanMsgBox from '@/components/HumanMsgBox';
 import AiMsgBox from '@/components/AiMsgBox';
-import { extractFilesFromMessages, FileNode } from '@/utils/extractFiles';
+import { buildFileTree, extractFilesFromMessages, FileNode } from '@/utils/extractFiles';
 import { FileTree } from '@/components/FileTree';
 import { CodeViewer } from '@/components/CodeViewer';
 import { useSession } from 'next-auth/react';
@@ -26,20 +26,20 @@ import DeliveringStream from '@/components/DeliveringStream';
 
 export type Message = {
     type: 'human' | 'ai' | 'tool_call' | 'tool_result';
-    content: string;
+    content: string | Record<string, any>;
     toolCall?: any;
 }
 
 export type Stream = {
-    type:'thinking'|'building'|'validating'|'delivering',
-    content:string;
+    type: 'thinking' | 'building' | 'validating' | 'delivering',
+    content: string;
 }
 
 interface PageProps {
     params: Promise<{ id: string }>;
     prompt?: string;
 }
- 
+
 interface ProjectResponse {
     data: {
         id: string,
@@ -57,7 +57,7 @@ const page = ({ params, prompt }: PageProps) => {
     const router = useRouter();
     const [projectUrl, setprojectUrl] = useState(null);
     const { id } = React.use(params);
-    const {data:session, status} = useSession();
+    const { data: session, status } = useSession();
     const userId = session?.user.id;
 
     const [initialPrompt, setInitialPrompt] = useState<string>('')
@@ -71,29 +71,33 @@ const page = ({ params, prompt }: PageProps) => {
 
     // When messages update, rebuild file tree
     useEffect(() => {
-        const files = extractFilesFromMessages(messages);
-        setFileTree(files);
+        //only extract from messages if not already loaded files from apl
+        if (messages.length > 0) {
+            const files = extractFilesFromMessages(messages);
+            console.log("CHECKING THE FILES IN MESSAGES", files);
+            setFileTree(files);
+        }
     }, [messages]);
 
     //saving the project state to the session storage whenever it changes
     useEffect(() => {
-      if(projectUrl && messages.length >0){
-        const projectState = {
-            projectUrl,
-            initialPrompt,
-            messages,
-            fileTree,
-            timeStamp: Date.now()
-        };
-        sessionStorage.setItem(`project_${id}`, JSON.stringify(projectState));
-      }
+        if (projectUrl && messages.length > 0) {
+            const projectState = {
+                projectUrl,
+                initialPrompt,
+                messages,
+                fileTree,
+                timeStamp: Date.now()
+            };
+            sessionStorage.setItem(`project_${id}`, JSON.stringify(projectState));
+        }
     }, [projectUrl, initialPrompt, messages, fileTree])
-    
+
 
     useEffect(() => {
         if (hasFetched.current) return;
         hasFetched.current = true;
-        
+
         const ws = new WebSocket(`ws://localhost:5000/?userId=${userId}`)
 
         ws.onopen = (e: Event) => {
@@ -108,7 +112,7 @@ const page = ({ params, prompt }: PageProps) => {
                 //checking session storage if the project exists there
                 const currentProjectState = sessionStorage.getItem(`project_${id}`);
 
-                if(currentProjectState){
+                if (currentProjectState) {
                     console.log("user refreshed! loading project from session storage")
                     const state = JSON.parse(currentProjectState);
 
@@ -120,26 +124,34 @@ const page = ({ params, prompt }: PageProps) => {
                     return;
                 }
 
-                //checking if the project came from project card and does exists in session storage
+                //checking if the project came from project list and does exists in session storage
                 const loadedProject = sessionStorage.getItem('loadedProject');
 
-                if(loadedProject){
+                if (loadedProject) {
                     const data = JSON.parse(loadedProject);
                     console.log("loading projects from db>>session>page", data.conversation)
                     setprojectUrl(data.projectUrl);
-                    setMessages(data.conversation); 
+                    setMessages(data.conversation);
+                    if (data.files && data.files.length > 0) {
+                        console.log("Building file tree from", data.files.length, "files");
+                        const tree = buildFileTree(data.files);
+                        console.log("Built tree:", tree);
+                        setFileTree(tree);
+                    } else {
+                        console.log("No files to build tree from");
+                    }
                     sessionStorage.removeItem('loadedProject');
                     return;
                 }
 
                 //hitting the backend if the project is being created for the first time
-                if(!loadedProject){
+                if (!loadedProject) {
                     const res = await fetch(`http://localhost:5000/api/project/${id}`)
                     const data: ProjectResponse = await res.json();
-        
+
                     const initialPromptFromDB = data.data.initialPrompt;
                     setInitialPrompt(initialPromptFromDB);
-        
+
                     const message = await fetch(`http://localhost:5000/prompt?projectId=${id}`, {
                         method: 'POST',
                         headers: {
@@ -181,22 +193,7 @@ const page = ({ params, prompt }: PageProps) => {
                     }]);
                     break;
 
-                case "tool_call":
-                    console.log("Tool call args:", data.args);
-                    setMessages(prev => [...prev, {
-                        type: 'tool_call',
-                        content: `Tool-call: ${data.name}`,
-                        toolCall: data
-                    }]);
-                    break;
 
-                case "tool_result":
-                    setMessages(prev => [...prev, {
-                        type: 'tool_result',
-                        content: data.content
-                    }]);
-                    break;
-                
                 case "refresh_preview": {
                     console.log("Refreshing iframe preview...");
 
@@ -206,8 +203,8 @@ const page = ({ params, prompt }: PageProps) => {
                     const current = iframe.src;
 
                     if (!current.includes(":5173")) {
-                    console.log("Not refreshing — iframe not ready");
-                    return;
+                        console.log("Not refreshing — iframe not ready");
+                        return;
                     }
 
                     iframe.src = current.split("?")[0] + "?t=" + Date.now();
@@ -217,33 +214,33 @@ const page = ({ params, prompt }: PageProps) => {
                 case "thinking":
                     setIsStreaming(true)
                     console.log("trying to implement thinking stream...")
-                    setStreams(prev=>[...prev,{
-                        type:'thinking',
-                        content:data.content
+                    setStreams(prev => [...prev, {
+                        type: 'thinking',
+                        content: data.content
                     }]);
                     break;
 
-                  case "building":
+                case "building":
                     console.log("trying to implement building stream...")
-                    setStreams(prev=>[...prev,{
-                        type:'building',
-                        content:data.content
-                    }]);
-                    break;
-                
-                  case "validating":
-                    console.log("trying to implement validating stream...")
-                    setStreams(prev=>[...prev,{
-                        type:'validating',
-                        content:data.content
+                    setStreams(prev => [...prev, {
+                        type: 'building',
+                        content: data.content
                     }]);
                     break;
 
-                  case "delivering":
+                case "validating":
+                    console.log("trying to implement validating stream...")
+                    setStreams(prev => [...prev, {
+                        type: 'validating',
+                        content: data.content
+                    }]);
+                    break;
+
+                case "delivering":
                     console.log("trying to implement delivering stream...")
-                    setStreams(prev=>[...prev,{
-                        type:'delivering',
-                        content:data.content
+                    setStreams(prev => [...prev, {
+                        type: 'delivering',
+                        content: data.content
                     }]);
                     break;
 
@@ -272,7 +269,7 @@ const page = ({ params, prompt }: PageProps) => {
     return (
         <div className='h-screen flex flex-col bg-black overflow-hidden'>
             {/* navbar  */}
-            <div onClick={()=>(
+            <div onClick={() => (
                 router.push('/')
             )} className='bg-black h-12 text-amber-50 font-extrabold p-2 mx-2 cursor-pointer flex-shrink-0'>
                 <Image
@@ -289,35 +286,43 @@ const page = ({ params, prompt }: PageProps) => {
                     <div className='flex h-full p-2 text-white flex-col overflow-hidden'>
                         {/* Messages container - grows to fill space, scrollable */}
                         <div className='bg-black flex-1 overflow-y-auto w-full text-neutral-100 font-inter hide-scrollbar min-h-0'>
-                            {messages.map((msg, index)=>{
-                                if(msg.type==='human'){
+                            {messages.map((msg, index) => {
+                                if (msg.type === 'human') {
                                     return <HumanMsgBox key={index} message={msg} />
-                                }else if(msg.type === 'ai'){
+                                } else if (msg.type === 'ai') {
                                     console.log("ai msg:", msg)
-                                    return <AiMsgBox key={index} message={msg} />
+                                    //sometime mf llm is sending msg as an object
+                                    const safeMessage = {
+                                        ...msg,
+                                        content: typeof msg.content === 'string'
+                                            ? msg.content
+                                            : JSON.stringify(msg.content, null, 2)
+                                    };
+
+                                    return <AiMsgBox key={index} message={safeMessage} />
                                 }
                                 return null
                             })}
 
                             {isStreaming && (
-                            <div className='flex flex-col gap-3 text-sm text-neutral-400 ml-2'>
-                                {streams.map((stream, index)=>{
-                                    if(stream.type==='thinking'){
-                                        return<ThinkingStream key={index} stream={stream} />
-                                    }else if(stream.type==='building'){
-                                        return <BuildingStream key={index} stream={stream} />
-                                    }else if(stream.type==='validating'){
-                                        return <ValidatingStream key={index} stream={stream} />
-                                    }else if(stream.type ==='delivering'){
-                                        return <DeliveringStream key={index} stream={stream} />
-                                    }
-                                })}
-                            </div>
+                                <div className='flex flex-col gap-3 text-sm text-neutral-400 ml-2'>
+                                    {streams.map((stream, index) => {
+                                        if (stream.type === 'thinking') {
+                                            return <ThinkingStream key={index} stream={stream} />
+                                        } else if (stream.type === 'building') {
+                                            return <BuildingStream key={index} stream={stream} />
+                                        } else if (stream.type === 'validating') {
+                                            return <ValidatingStream key={index} stream={stream} />
+                                        } else if (stream.type === 'delivering') {
+                                            return <DeliveringStream key={index} stream={stream} />
+                                        }
+                                    })}
+                                </div>
                             )}
                         </div>
-                        
+
                         <div className='flex-shrink-0 relative z-20'>
-                            <PromptInput initialPrompt={initialPrompt} prompt={prompt} type={'secondary'} params={params}/>
+                            <PromptInput initialPrompt={initialPrompt} prompt={prompt} type={'secondary'} params={params} />
                         </div>
                     </div>
                 </div>
@@ -345,7 +350,7 @@ const page = ({ params, prompt }: PageProps) => {
                                 </div>
                             </div>
 
-                            <div onClick={()=>(
+                            <div onClick={() => (
                                 window.open(`${projectUrl}`)
                             )}>
                                 <SquareArrowUpRight className='text-neutral-300 size-5 cursor-pointer' />
@@ -357,8 +362,8 @@ const page = ({ params, prompt }: PageProps) => {
                             <TabsContent value="code" className='h-full'>
                                 <div className="flex h-full">
                                     {/* Left: File Tree */}
-                                    <div className="w-64 bg-gray-900 text-white overflow-y-auto">
-                                        <div className="p-4 border-b border-gray-700">
+                                    <div className="w-48 bg-[#252424] text-white overflow-y-auto">
+                                        <div className="p-4 border-b border-[#292929]">
                                             <h2 className="font-bold">Files</h2>
                                         </div>
                                         <FileTree
@@ -386,11 +391,11 @@ const page = ({ params, prompt }: PageProps) => {
                                             />
                                         </div>
                                     )}
-                                    
+
                                     {/* Iframe */}
-                                    <iframe 
-                                        src={projectUrl} 
-                                        title='iframe example' 
+                                    <iframe
+                                        src={projectUrl}
+                                        title='iframe example'
                                         className='w-full h-full'
                                         onLoad={handleIframeLoad}
                                     ></iframe>

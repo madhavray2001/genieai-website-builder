@@ -104,9 +104,9 @@ export default function HomePage() {
         /> */}
         
         {/* slight white glow */}
-        <div
+        {/* <div
           aria-hidden="true"
-          className="pointer-events-none fixed bottom-0 right-0 h-[45rem] w-[45rem] translate-y-1/3 translate-x-1/3 rounded-full opacity-30 blur-3xl"
+          className="pointer-events-none fixed bottom-0 right-0 h-[45rem] w-[45rem] translate-y-1/3 translate-x-1/3 rounded-full opacity-15 blur-3xl"
           style={{
             background:
             
@@ -114,8 +114,7 @@ export default function HomePage() {
           }}
         />
         
-        {/* grid overlay */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:64px_64px] pointer-events-none" />
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:64px_64px] pointer-events-none" /> */}
         
         {status === 'authenticated' ? (
           <SidebarProvider>
