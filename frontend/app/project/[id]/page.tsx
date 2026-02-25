@@ -193,6 +193,17 @@ const page = ({ params, prompt }: PageProps) => {
                     }]);
                     break;
 
+                case "tool_call":
+                 console.log("Received tool_call:", data);
+                setMessages(prev => [...prev, {
+                type: 'tool_call',
+                content: `Creating file: ${data.args?.filePath}`,
+                toolCall: {
+                    name: data.name,
+                    args: data.args
+                    }
+                 }]);
+                    break;
 
                 case "refresh_preview": {
                     console.log("Refreshing iframe preview...");

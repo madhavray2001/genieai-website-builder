@@ -27,7 +27,7 @@ const MessageState = z.object({
 type State = z.infer<typeof MessageState>;
 
 export async function runAgent(userId: string, projectId: string, conversationState: State, client: WebSocket, sandbox: Sandbox):Promise<void> {
-  
+
   client.send(JSON.stringify({
     type:'thinking',
     content:"Thinking...."}))
@@ -35,7 +35,7 @@ export async function runAgent(userId: string, projectId: string, conversationSt
   console.log("RUNNING LLM")
 
   const llm = new ChatGoogleGenerativeAI({
-    model: "gemini-2.5-flash-lite",
+    model: "gemini-2.5-flash",
     temperature: 1
   })
 
@@ -46,7 +46,7 @@ export async function runAgent(userId: string, projectId: string, conversationSt
 
 
   const summariserLLM = new ChatGoogleGenerativeAI({
-    model: "gemini-2.5-flash",
+    model: "gemini-2.5-flash-lite",
     temperature: 0
   })
 

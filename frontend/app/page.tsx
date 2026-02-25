@@ -93,28 +93,6 @@ export default function HomePage() {
           } as React.CSSProperties
         }
       >
-        {/* In the purple glow*/}
-        {/* <div
-          aria-hidden="true"
-          className="pointer-events-none fixed bottom-0 right-0 h-[45rem] w-[45rem] translate-y-1/3 translate-x-1/3 rounded-full opacity-30 blur-3xl"
-          style={{
-            background:
-              "radial-gradient(circle, rgba(139, 92, 246, 0.4) 0%, rgba(168, 85, 247, 0.3) 25%, rgba(217, 70, 239, 0.2) 50%, rgba(236, 72, 153, 0.1) 75%, transparent 100%)",
-          }}
-        /> */}
-        
-        {/* slight white glow */}
-        {/* <div
-          aria-hidden="true"
-          className="pointer-events-none fixed bottom-0 right-0 h-[45rem] w-[45rem] translate-y-1/3 translate-x-1/3 rounded-full opacity-15 blur-3xl"
-          style={{
-            background:
-            
-              "radial-gradient(circle, rgba(255, 255, 255, 0.25) 0%, rgba(255, 255, 255, 0.15) 25%, rgba(255, 255, 255, 0.08) 50%, rgba(255, 255, 255, 0.03) 75%, transparent 100%)",
-          }}
-        />
-        
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:64px_64px] pointer-events-none" /> */}
         
         {status === 'authenticated' ? (
           <SidebarProvider>
