@@ -127,6 +127,16 @@ app.post('/conversation', async (req: express.Request, res: express.Response) =>
 
     const sandbox = await getSandbox(projectId, userId);
 
+    const countConversation = await prisma.conversationHistory.count({
+      where:{projectId}
+    })
+
+    if(countConversation >= 4){
+      return res.status(429).json({
+        msg:"COnversation limit reached!",
+        current:countConversation
+      })
+    }
     await prisma.conversationHistory.create({
       data: {
         projectId,

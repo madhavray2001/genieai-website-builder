@@ -7,6 +7,8 @@ import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput, InputGr
 import { useParams, useRouter } from "next/navigation"
 import { signIn, useSession } from "next-auth/react"
 import { LuSquareArrowUp } from "react-icons/lu";
+import RateLimitAlert from "./RateLimitAlert"
+import ConversationLimitAlert from "./ConversationLimitAlert"
 
 interface PromptInputProps {
   type: 'primary' | 'secondary'
@@ -29,6 +31,8 @@ export const PromptInput = forwardRef<{ focus: () => void }, PromptInputProps>(
   const { data: session, status } = useSession();
   const [value, setValue] = React.useState("")
   const [submitting, setSubmitting] = React.useState(false)
+  const [showRateLimit, setShowRateLimit] = React.useState(false)
+  const [showConversationRateLimit, setShowConversationRateLimit] = React.useState(false)
 
   const para = useParams();
   const projectId = para?.id;
@@ -79,6 +83,11 @@ export const PromptInput = forwardRef<{ focus: () => void }, PromptInputProps>(
           },
           body: JSON.stringify({ initialPrompt: value, userId })
         })
+
+        if(res.status === 429){
+          setShowRateLimit(true)
+          return;
+        }
         const data = await res.json();
         router.push(`/project/${id}`)
 
@@ -102,6 +111,10 @@ export const PromptInput = forwardRef<{ focus: () => void }, PromptInputProps>(
           },
           body: JSON.stringify({ prompt: currentValue, userId})
         })
+        if(res.status === 429){
+          setShowConversationRateLimit(true)
+          return;
+        }
         const data = await res.json();
         console.log("data from prompt api", data.msg)
       } catch (error) {
@@ -112,6 +125,7 @@ export const PromptInput = forwardRef<{ focus: () => void }, PromptInputProps>(
   }
 
   return (
+    <>
     <form onSubmit={onSubmit} className="w-full">
       <label htmlFor="user-prompt" className="sr-only">
         Ask Genie to create...
@@ -147,6 +161,9 @@ export const PromptInput = forwardRef<{ focus: () => void }, PromptInputProps>(
 
       <input ref={fileRef} type="file" multiple hidden aria-label="Attachments" />
     </form>
+    <RateLimitAlert open={showRateLimit} onOpenChange={setShowRateLimit} />
+    <ConversationLimitAlert open={showConversationRateLimit} onOpenChange={setShowConversationRateLimit} />
+    </>
   )
 })
 

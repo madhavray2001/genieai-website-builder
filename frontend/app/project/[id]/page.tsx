@@ -68,11 +68,13 @@ const page = ({ params, prompt }: PageProps) => {
     const [iframeLoading, setIframeLoading] = useState(true);
     const [streams, setStreams] = useState<Stream[]>([])
     const [isStreaming, setIsStreaming] = useState(true)
+    // const [isLoadingFromDB, setIsLoadingFromDB] = useState(false)
+    const isLoadingFromDBRef = useRef(false);
 
     // When messages update, rebuild file tree
     useEffect(() => {
         //only extract from messages if not already loaded files from apl
-        if (messages.length > 0) {
+        if (messages.length > 0 && !isLoadingFromDBRef.current) {
             const files = extractFilesFromMessages(messages);
             console.log("CHECKING THE FILES IN MESSAGES", files);
             setFileTree(files);
@@ -128,6 +130,7 @@ const page = ({ params, prompt }: PageProps) => {
                 const loadedProject = sessionStorage.getItem('loadedProject');
 
                 if (loadedProject) {
+                    isLoadingFromDBRef.current=true;
                     const data = JSON.parse(loadedProject);
                     console.log("loading projects from db>>session>page", data.conversation)
                     setprojectUrl(data.projectUrl);
@@ -141,9 +144,12 @@ const page = ({ params, prompt }: PageProps) => {
                         console.log("No files to build tree from");
                     }
                     sessionStorage.removeItem('loadedProject');
+
+                    setTimeout(()=>{isLoadingFromDBRef.current = false}, 1000);
                     return;
                 }
 
+                isLoadingFromDBRef.current=false
                 //hitting the backend if the project is being created for the first time
                 if (!loadedProject) {
                     const res = await fetch(`http://localhost:5000/api/project/${id}`)
