@@ -44,15 +44,36 @@ app.post("/prompt", async (req: express.Request, res: express.Response) => {
   const projectId = req.query.projectId as string;
   console.log("prompt by user:", prompt);
 
-  const client: WebSocket = users.get(userId)!;
   
-  //sending only the new message via websocket
-client.send(JSON.stringify({
-  type:'human',
-  content:prompt
-}))
-
   try {
+    
+    const project = await prisma.project.findUnique({
+      where:{
+        id:projectId,
+      },
+      select:{
+        userId:true
+      }
+    })
+
+    if(!project){
+      return res.status(403).json({msg:"Project not found"})
+    }
+
+    if(project.userId !== userId){
+      return res.status(403).json({msg:"Access denied"})
+    }
+
+    const client: WebSocket | undefined = users.get(userId)!;
+
+    if(!client){
+      return res.status(400).json({msg:"ws not found. Refresh page"})
+    }
+    //sending only the new message via websocket
+  client.send(JSON.stringify({
+    type:'human',
+    content:prompt
+  }))
     const sandbox = await getSandbox(projectId, userId);
     const host = sandbox.getHost(5173);
     
@@ -113,8 +134,6 @@ client.send(JSON.stringify({
 
 
 app.post('/conversation', async (req: express.Request, res: express.Response) => {
-  // const title = 'test project';
-  // const userId = '9cabe184-e4b9-4351-9b71-5737107d552b';
   const { prompt, userId } = req.body;
   const projectId = req.query.id as string;
 
@@ -125,12 +144,32 @@ app.post('/conversation', async (req: express.Request, res: express.Response) =>
       })
     }
 
+    const project = await prisma.project.findUnique({
+      where:{id:projectId},
+      select:{userId:true}
+    })
+
+    if(!project){
+      return res.status(404).json({msg:"Project not found"})
+    }
+
+    if(project.userId !== userId){
+      return res.status(403).json({msg:"Access denied!"})
+    }
     const sandbox = await getSandbox(projectId, userId);
 
     const countConversation = await prisma.conversationHistory.count({
       where:{projectId}
     })
+    const client: WebSocket|undefined = users.get(userId)!;
 
+    if(!client){
+      return res.status(400).json({
+        msg:"WS not found, refresh the page"
+      })
+    }
+
+    
     if(countConversation >= 4){
       return res.status(429).json({
         msg:"COnversation limit reached!",
@@ -145,7 +184,7 @@ app.post('/conversation', async (req: express.Request, res: express.Response) =>
         contents: prompt
       }
     })
-
+    
     // Initialize globalStore if not exists (after server restart)
     if (!globalStore.has(userId)) {
       console.log(` Initializing globalStore for user ${userId} (server restart)`);
@@ -156,9 +195,9 @@ app.post('/conversation', async (req: express.Request, res: express.Response) =>
       });
       globalStore.set(userId, projectState);
     }
-
+    
     let projectState = globalStore.get(userId);
-
+    
     // Initialize project if not exists (after server restart)
     if (!projectState?.has(projectId)) {
       console.log(` Initializing project ${projectId} (server restart)`);
@@ -169,18 +208,16 @@ app.post('/conversation', async (req: express.Request, res: express.Response) =>
     }
     let conversationState: ConversationState = projectState?.get(projectId)!;
     conversationState.messages.push(new HumanMessage(prompt))
-
-    const client: WebSocket = users.get(userId)!;
-
+    
     //sending only the new message via websocket
     client.send(JSON.stringify({
       type:'human',
       content:prompt
     }))
-
+    
     // console.log("conversation state to the llm with the follow up message:", conversationState)
-
-
+    
+    
     const data = await runAgent(userId, projectId, conversationState, client, sandbox);
     // JSON.stringify(data.)
 

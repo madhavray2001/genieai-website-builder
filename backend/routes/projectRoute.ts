@@ -25,7 +25,7 @@ router.post('/project', async (req : express.Request, res: express.Response) => 
             const projectCount = await prisma.project.count({
                 where:{userId}
             })
-            
+            console.log("jhol jholll")
             if(projectCount >= 1){
                 return res.status(429).json({
                     msg:"Project limit reached",
@@ -160,46 +160,40 @@ router.get('/project/load/:id', async(req:express.Request, res:express.Response)
     }
 })
 
-// router.get('/project/files/:id', async(req:express.Request, res:express.Response)=>{
-//     const {id: projectId} = req.params;
-//     const userId = req.query.userId as string;
+//verification route to check if the project belong to the user
+router.get("/project/verify/:id",async (req:express.Request, res:express.Response)=>{
+    const {id:projectId} = req.params;
+    const userId = req.query.userId as string;
 
-//     try {
-//         if(!userId){
-//             return res.status(400).json({msg:"userId is required"})
-//         }
-        
-//         const sandbox = await getSandbox(projectId as string, userId);
+    try {
+        if(!userId || !projectId){
+            return res.status(400).json({msg:"userId or projectId is missing"})
+        }
 
-//         const result = await sandbox.commands.run(
-//             'find /home/user -type f -not -path "*/node_modules/*" -not -path "*/.git/*" -not -path "*/dist/*"',
-//             { cwd: '/home/user' }
-//         );
+        const project = await prisma.project.findUnique({
+            where:{
+                id:projectId,
+            },
+            select:{
+                userId:true
+            }
+        })
 
-//         const filePaths = result.stdout.split('\n').filter(p=>p.trim());
+        if(!project){
+            return res.status(404).json({msg:"user doesnt have access to this project"})
+        }
 
-//         const files = await Promise.all(
-//             filePaths.map(async(path)=>{
-//                 try {
-//                     const content = await sandbox.files.read(path);
-//                     return{
-//                         path:path.replace('/home/user',''),
-//                         content:content.toString()
-//                     };
-//                 } catch (error) {
-//                     console.error(`Error reading ${path}:`, error)
-//                     return null 
-//                 }
-//             })
-//         )
-//         return res.status(200).json({
-//             msg:"Files fetched successfully",
-//             files:files.filter(f=>f !==null)
-//         });
-//     } catch (error) {
-//         console.error("Error fetching files", error);
-//         return res.status(500).json({msg:"INternal server error"});
-//     }
-// })
+        if(project.userId === userId){
+            return res.status(200).json({msg:"user has access"})
+        }else{
+            return res.status(403).json({
+                msg:"User doesnt own this project"
+            })
+        }
+    } catch (error) {
+        console.error("Error verifying project", error);
+        return res.status(500).json({msg:"Internal server error"})
+    }
+})
 
 export default router;
