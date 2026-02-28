@@ -1,7 +1,7 @@
 "use client"
 import React, { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
-import { Eye, CodeXml, ChevronLeft, ChevronRight, Monitor, SquareArrowUpRight } from 'lucide-react';
+import { Eye, CodeXml, ChevronLeft, ChevronRight, Monitor, SquareArrowUpRight, MessageSquare, Code2 } from 'lucide-react';
 import {
     Tabs,
     TabsContent,
@@ -68,12 +68,11 @@ const page = ({ params, prompt }: PageProps) => {
     const [iframeLoading, setIframeLoading] = useState(true);
     const [streams, setStreams] = useState<Stream[]>([])
     const [isStreaming, setIsStreaming] = useState(true)
-    // const [isLoadingFromDB, setIsLoadingFromDB] = useState(false)
     const isLoadingFromDBRef = useRef(false);
+    const [activeView, setActiveView] = useState<'chat' | 'preview'>('chat');
 
     // When messages update, rebuild file tree
     useEffect(() => {
-        //only extract from messages if not already loaded files from apl
         if (messages.length > 0 && !isLoadingFromDBRef.current) {
             const files = extractFilesFromMessages(messages);
             console.log("CHECKING THE FILES IN MESSAGES", files);
@@ -81,7 +80,7 @@ const page = ({ params, prompt }: PageProps) => {
         }
     }, [messages]);
 
-    //saving the project state to the session storage whenever it changes
+    // Saving the project state to the session storage whenever it changes
     useEffect(() => {
         if (projectUrl && messages.length > 0) {
             const projectState = {
@@ -94,7 +93,6 @@ const page = ({ params, prompt }: PageProps) => {
             sessionStorage.setItem(`project_${id}`, JSON.stringify(projectState));
         }
     }, [projectUrl, initialPrompt, messages, fileTree])
-
 
     useEffect(() => {
         if (hasFetched.current) return;
@@ -109,9 +107,8 @@ const page = ({ params, prompt }: PageProps) => {
         console.log("project id in the project page", id)
 
         async function initializeProject() {
-
             try {
-                //checking session storage if the project exists there
+                // Checking session storage if the project exists there
                 const currentProjectState = sessionStorage.getItem(`project_${id}`);
 
                 if (currentProjectState) {
@@ -126,11 +123,11 @@ const page = ({ params, prompt }: PageProps) => {
                     return;
                 }
 
-                //checking if the project came from project list and does exists in session storage
+                // Checking if the project came from project list and does exists in session storage
                 const loadedProject = sessionStorage.getItem('loadedProject');
 
                 if (loadedProject) {
-                    isLoadingFromDBRef.current=true;
+                    isLoadingFromDBRef.current = true;
                     const data = JSON.parse(loadedProject);
                     console.log("loading projects from db>>session>page", data.conversation)
                     setprojectUrl(data.projectUrl);
@@ -145,12 +142,12 @@ const page = ({ params, prompt }: PageProps) => {
                     }
                     sessionStorage.removeItem('loadedProject');
 
-                    setTimeout(()=>{isLoadingFromDBRef.current = false}, 1000);
+                    setTimeout(() => { isLoadingFromDBRef.current = false }, 1000);
                     return;
                 }
 
-                isLoadingFromDBRef.current=false
-                //hitting the backend if the project is being created for the first time
+                isLoadingFromDBRef.current = false
+                // hittin the backend if the project is being created for the first time
                 if (!loadedProject) {
                     const res = await fetch(`http://localhost:5000/api/project/${id}`)
                     const data: ProjectResponse = await res.json();
@@ -172,7 +169,6 @@ const page = ({ params, prompt }: PageProps) => {
             } catch (error) {
                 console.log("Internal server error", error)
             }
-
         }
 
         initializeProject();
@@ -200,15 +196,15 @@ const page = ({ params, prompt }: PageProps) => {
                     break;
 
                 case "tool_call":
-                 console.log("Received tool_call:", data);
-                setMessages(prev => [...prev, {
-                type: 'tool_call',
-                content: `Creating file: ${data.args?.filePath}`,
-                toolCall: {
-                    name: data.name,
-                    args: data.args
-                    }
-                 }]);
+                    console.log("Received tool_call:", data);
+                    setMessages(prev => [...prev, {
+                        type: 'tool_call',
+                        content: `Creating file: ${data.args?.filePath}`,
+                        toolCall: {
+                            name: data.name,
+                            args: data.args
+                        }
+                    }]);
                     break;
 
                 case "refresh_preview": {
@@ -266,7 +262,6 @@ const page = ({ params, prompt }: PageProps) => {
             }
 
             console.log("checking why the user msg is repeated:", messages);
-
         };
 
     }, [id])
@@ -285,10 +280,11 @@ const page = ({ params, prompt }: PageProps) => {
 
     return (
         <div className='h-screen flex flex-col bg-black overflow-hidden'>
-            {/* navbar  */}
-            <div onClick={() => (
-                router.push('/')
-            )} className='bg-black h-12 text-amber-50 font-extrabold p-2 mx-2 cursor-pointer flex-shrink-0'>
+            {/* Navbar */}
+            <div 
+                onClick={() => router.push('/')} 
+                className='bg-black h-12 text-amber-50 font-extrabold p-2 mx-2 cursor-pointer flex-shrink-0 flex items-center'
+            >
                 <Image
                     src="/logo.svg"
                     alt="Logo"
@@ -297,18 +293,46 @@ const page = ({ params, prompt }: PageProps) => {
                 />
             </div>
 
-            {/* chatbot and preview */}
+            {/* Mobile Tab Switcher - only visible on mobile */}
+            <div className='lg:hidden flex border-b border-[#292929] bg-black'>
+                <button
+                    onClick={() => setActiveView('chat')}
+                    className={`flex-1 flex items-center justify-center gap-2 py-3 transition-colors ${
+                        activeView === 'chat' 
+                            ? 'text-white border-b-2 border-white' 
+                            : 'text-neutral-500'
+                    }`}
+                >
+                    <MessageSquare className='w-4 h-4' />
+                    <span className='text-sm font-medium'>Chat</span>
+                </button>
+                <button
+                    onClick={() => setActiveView('preview')}
+                    className={`flex-1 flex items-center justify-center gap-2 py-3 transition-colors ${
+                        activeView === 'preview' 
+                            ? 'text-white border-b-2 border-white' 
+                            : 'text-neutral-500'
+                    }`}
+                >
+                    <Code2 className='w-4 h-4' />
+                    <span className='text-sm font-medium'>Preview</span>
+                </button>
+            </div>
+
+            {/* Main Content Area */}
             <div className='flex flex-1 min-h-0'>
-                <div className='bg-black w-1/3 flex flex-col overflow-hidden mt-4'>
-                    <div className='flex h-full p-2 text-white flex-col overflow-hidden'>
-                        {/* Messages container - grows to fill space, scrollable */}
-                        <div className='bg-black flex-1 overflow-y-auto w-full text-neutral-100 font-inter hide-scrollbar min-h-0'>
+                {/* Chat Section */}
+                <div className={`bg-black w-full lg:w-1/3 flex flex-col overflow-hidden mt-0 lg:mt-4 ${
+                    activeView === 'chat' ? 'flex' : 'hidden lg:flex'
+                }`}>
+                    <div className='flex h-full p-2 lg:p-2 text-white flex-col overflow-hidden'>
+                        {/* Messages container */}
+                        <div className='bg-black flex-1 overflow-y-auto w-full text-neutral-100 font-inter hide-scrollbar min-h-0 pb-2'>
                             {messages.map((msg, index) => {
                                 if (msg.type === 'human') {
                                     return <HumanMsgBox key={index} message={msg} />
                                 } else if (msg.type === 'ai') {
                                     console.log("ai msg:", msg)
-                                    //sometime mf llm is sending msg as an object
                                     const safeMessage = {
                                         ...msg,
                                         content: typeof msg.content === 'string'
@@ -338,73 +362,89 @@ const page = ({ params, prompt }: PageProps) => {
                             )}
                         </div>
 
-                        <div className='flex-shrink-0 relative z-20'>
-                            <PromptInput initialPrompt={initialPrompt} prompt={prompt} type={'secondary'} params={params} />
+                        {/* Input area - Fixed at bottom */}
+                        <div className='flex-shrink-0 relative z-20 pb-2 lg:pb-0'>
+                            <PromptInput 
+                                initialPrompt={initialPrompt} 
+                                prompt={prompt} 
+                                type={'secondary'} 
+                                params={params} 
+                            />
                         </div>
                     </div>
                 </div>
 
-                {/* preview container */}
-                <div className='bg-black flex-1 border-1 rounded-lg border-[#292929] mb-1 flex flex-col overflow-hidden'>
+                {/* Preview Section */}
+                <div className={`bg-black flex-1 border-1 rounded-lg border-[#292929] mb-0 lg:mb-1 flex flex-col overflow-hidden ${
+                    activeView === 'preview' ? 'flex' : 'hidden lg:flex'
+                }`}>
                     <Tabs defaultValue="preview" className='h-full flex flex-col'>
-                        {/* Navbar section*/}
-                        <div className='navbarSection h-13 border-b-1 border-[#292929] p-5 flex items-center gap-60 flex-shrink-0'>
-                            <TabsList className='bg-[#252424] h-8 p-0 w-18 border border-[#292929]'>
-                                <TabsTrigger value="preview" className='cursor-pointer'>
-                                    <Eye className='text-gray-300 ' />
+                        {/* Navbar section */}
+                        <div className='navbarSection h-auto lg:h-13 border-b-1 border-[#292929] p-3 lg:p-5 flex flex-col lg:flex-row items-stretch lg:items-center gap-3 lg:gap-60 flex-shrink-0'>
+                            <TabsList className='bg-[#252424] h-8 p-0 w-full lg:w-18 border border-[#292929] flex'>
+                                <TabsTrigger value="preview" className='cursor-pointer flex-1 lg:flex-none'>
+                                    <Eye className='text-gray-300' />
+                                    <span className='ml-2 lg:hidden text-xs text-gray-300'>Preview</span>
                                 </TabsTrigger>
-                                <TabsTrigger value="code" className='cursor-pointer'>
+                                <TabsTrigger value="code" className='cursor-pointer flex-1 lg:flex-none'>
                                     <CodeXml className='text-gray-300' />
+                                    <span className='ml-2 lg:hidden text-xs text-gray-300'>Code</span>
                                 </TabsTrigger>
                             </TabsList>
 
-                            <div className="navURLbar border-1 border-[#292929] rounded-sm bg-[#252424] flex h-6 w-full items-center gap-3">
-                                <div className=' w-full h-full flex items-center gap-3'>
-                                    <ChevronLeft className='text-neutral-400 w-4 h-4 ml-2' />
-                                    <ChevronRight className='text-neutral-400 w-4 h-4' />
+                            <div className="navURLbar border-1 border-[#292929] rounded-sm bg-[#252424] flex h-8 lg:h-6 w-full items-center gap-2 lg:gap-3 px-2">
+                                <div className='w-full h-full flex items-center gap-2 lg:gap-3'>
+                                    <ChevronLeft className='text-neutral-400 w-4 h-4 hidden lg:block' />
+                                    <ChevronRight className='text-neutral-400 w-4 h-4 hidden lg:block' />
                                     <Monitor className='text-neutral-300 w-4 h-4' />
-                                    <p className='text-neutral-300 text-sm cursor-default font-inter'>localhost:3000/</p>
+                                    <p className='text-neutral-300 text-xs lg:text-sm cursor-default font-inter truncate'>
+                                        localhost:3000/
+                                    </p>
                                 </div>
-                            </div>
-
-                            <div onClick={() => (
-                                window.open(`${projectUrl}`)
-                            )}>
-                                <SquareArrowUpRight className='text-neutral-300 size-5 cursor-pointer' />
+                                <div 
+                                    onClick={() => window.open(`${projectUrl}`)}
+                                    className='flex-shrink-0 cursor-pointer hover:bg-[#333333] p-1 rounded transition-colors'
+                                >
+                                    <SquareArrowUpRight className='text-neutral-300 w-4 h-4' />
+                                </div>
                             </div>
                         </div>
 
-                        {/* Preview section*/}
+                        {/* Preview/Code section */}
                         <div className="previewSection flex-1 min-h-0">
-                            <TabsContent value="code" className='h-full'>
+                            <TabsContent value="code" className='h-full m-0'>
                                 <div className="flex h-full">
-                                    {/* Left: File Tree */}
-                                    <div className="w-48 bg-[#252424] text-white overflow-y-auto">
-                                        <div className="p-4 border-b border-[#292929]">
-                                            <h2 className="font-bold">Files</h2>
+                                    {/* File Tree - Always on the left */}
+                                    <div className="w-48 sm:w-56 md:w-64 bg-[#252424] text-white overflow-y-auto border-r border-[#292929] flex-shrink-0">
+                                        <div className="p-3 lg:p-4 border-b border-[#292929] sticky top-0 bg-[#252424] z-10">
+                                            <h2 className="font-bold text-sm lg:text-base">Files</h2>
                                         </div>
-                                        <FileTree
-                                            nodes={fileTree}
-                                            onFileClick={(file) => setSelectedFile(file)}
-                                        />
+                                        <div className="overflow-y-auto">
+                                            <FileTree
+                                                nodes={fileTree}
+                                                onFileClick={(file) => setSelectedFile(file)}
+                                            />
+                                        </div>
                                     </div>
 
-                                    {/* Right: Monaco Editor */}
-                                    <div className="flex-1">
+                                    {/* Monaco Editor - Takes remaining space */}
+                                    <div className="flex-1 min-w-0">
                                         <CodeViewer file={selectedFile} />
                                     </div>
                                 </div>
                             </TabsContent>
-                            <TabsContent value="preview" className='h-full bg-[#111111]'>
+                            
+                            <TabsContent value="preview" className='h-full bg-[#111111] m-0'>
                                 <div className='text-white h-full flex justify-center items-center relative bg-[#111111]'>
-                                    {/* Lottie Loader - shows when iframe is loading */}
+                                    {/* Lottie Loader */}
                                     {iframeLoading && (
                                         <div className='absolute inset-0 bg-[#111111] flex justify-center items-center z-10'>
                                             <DotLottiePlayer
                                                 src="/loader.lottie"
                                                 loop
                                                 autoplay
-                                                style={{ width: '300px', height: '300px' }}
+                                                style={{ width: '200px', height: '200px' }}
+                                                className='lg:w-[300px] lg:h-[300px]'
                                             />
                                         </div>
                                     )}

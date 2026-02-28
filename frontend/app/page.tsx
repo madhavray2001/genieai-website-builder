@@ -108,7 +108,7 @@ export default function HomePage() {
                 
                 <section className="flex items-center justify-center px-6 overflow-auto">
                   <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-8 text-center py-8">
-                    <h1 className="font-inter text-balance text-3xl font-black tracking-[-0.03em] md:text-4xl lg:text-5xl lg:font-semibold text-white">
+                    <h1 className="font-inter text-balance text-xl font-black tracking-[-0.03em] md:text-4xl lg:text-5xl lg:font-semibold text-white">
                       Ask and it shall be given to you
                     </h1>
 
@@ -131,7 +131,7 @@ export default function HomePage() {
             <Navbar />
             <section className="flex items-center justify-center px-6">
               <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-8 text-center">
-                <h1 className="font-inter text-balance text-3xl font-black tracking-[-0.03em] md:text-4xl lg:text-5xl lg:font-semibold text-white">
+                <h1 className="font-inter text-balance text-xl font-black tracking-[-0.03em] md:text-4xl lg:text-5xl lg:font-semibold text-white">
                   Ask and it shall be given to you
                 </h1>
 
