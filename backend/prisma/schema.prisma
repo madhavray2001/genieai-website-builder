@@ -22,7 +22,8 @@ model Project {
   id                  String                @id
   title               String? @default("default title from db")
   initialPrompt       String
-  userId              String
+  enhancedPrompt      String @default("Not generated")
+  userId              String 
   user                User                  @relation(fields: [userId], references: [id])
   conversationHistory ConversationHistory[]
   createdAt           DateTime              @default(now())

@@ -44,7 +44,8 @@ interface ProjectResponse {
     data: {
         id: string,
         initialPrompt: string,
-        userId: string
+        userId: string,
+        enhancedPrompt:string
     }
 }
 
@@ -153,6 +154,7 @@ const page = ({ params, prompt }: PageProps) => {
                     const data: ProjectResponse = await res.json();
 
                     const initialPromptFromDB = data.data.initialPrompt;
+                    const enhancedPromptFromDB = data.data.enhancedPrompt;
                     setInitialPrompt(initialPromptFromDB);
 
                     const message = await fetch(`http://localhost:5000/prompt?projectId=${id}`, {
@@ -160,7 +162,8 @@ const page = ({ params, prompt }: PageProps) => {
                         headers: {
                             'Content-Type': 'application/json'
                         },
-                        body: JSON.stringify({ prompt: initialPromptFromDB, userId })
+                        body: JSON.stringify({ prompt: initialPromptFromDB, enhancedPrompt:enhancedPromptFromDB ,userId })
+                        //prompt:enhancedPromptFromDB, usersPrompt:initialPromptFromDB
                     })
                     const data2: PromptResponse = await message.json();
                     setprojectUrl(data2.projectUrl)

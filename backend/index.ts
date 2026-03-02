@@ -21,9 +21,6 @@ app.use('/api', userRoute)
 const server = http.createServer(app);
 const prisma = new PrismaClient();
 
-// const sandbox = await Sandbox.create('8yn0aii31bapkinrarai')
-// const host = sandbox.getHost(5173)
-// console.log(`https://${host}`)
 
 const wss = new WebSocketServer({ server });
 
@@ -40,11 +37,11 @@ const globalStore: GlobalState = new Map();
 
 app.post("/prompt", async (req: express.Request, res: express.Response) => {
 
-  const { prompt, userId } = req.body;
+  const {prompt,enhancedPrompt ,userId } = req.body;
   const projectId = req.query.projectId as string;
   console.log("prompt by user:", prompt);
+  console.log("enhanced prompt by an agent", enhancedPrompt);
 
-  
   try {
     
     const project = await prisma.project.findUnique({
@@ -70,10 +67,11 @@ app.post("/prompt", async (req: express.Request, res: express.Response) => {
       return res.status(400).json({msg:"ws not found. Refresh page"})
     }
     //sending only the new message via websocket
-  client.send(JSON.stringify({
+    client.send(JSON.stringify({
     type:'human',
     content:prompt
-  }))
+    }))
+
     const sandbox = await getSandbox(projectId, userId);
     const host = sandbox.getHost(5173);
     
@@ -101,7 +99,7 @@ app.post("/prompt", async (req: express.Request, res: express.Response) => {
     }
     
     let conversationState: ConversationState = projectState?.get(projectId)!;
-    conversationState.messages.push(new HumanMessage(prompt))
+    conversationState.messages.push(new HumanMessage(enhancedPrompt))
     // console.log("checking global store with conversationState", globalStore)
     // console.log("checking the conversation state", conversationState);
     
@@ -226,7 +224,6 @@ app.post('/conversation', async (req: express.Request, res: express.Response) =>
 
     return res.status(200).json({
       msg: "Prompt given successfully",
-      // conversation
     })
   } catch (error) {
     console.error("Internal server error", error);

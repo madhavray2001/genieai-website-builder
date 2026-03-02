@@ -6,40 +6,52 @@ import { getSandbox } from "../sandboxManager";
 const router = express.Router();
 const prisma = new PrismaClient();
 
+const titleGeneratorLLM = new ChatGoogleGenerativeAI({
+    model: "gemini-2.5-flash",
+    temperature: 0
+})
+
+const promptEnhancerLLM = new ChatGoogleGenerativeAI({
+    model:"gemini-2.5-flash-lite",
+    temperature:0
+})
+
 router.post('/project', async (req : express.Request, res: express.Response) => {
     const { initialPrompt, userId } = req.body;
     console.log("this is the intialPrompt", initialPrompt);
     console.log("this is the userId", userId);
     const id = req.query.id as string;
 
+    
     try {
-        // if(!id){
-            //     return res.status(400).json({msg:"missing id in query"})
-            // }
-            if (!initialPrompt || !userId || !id) {
-                return res.status(404).json({
-                    msg: "Invalid input - missing initialPrompt, userId or id"
-                })
-            }
-
-            const projectCount = await prisma.project.count({
-                where:{userId}
+        if (!initialPrompt || !userId || !id) {
+            return res.status(404).json({
+                msg: "Invalid input - missing initialPrompt, userId or id"
             })
-            console.log("jhol jholll")
-            if(projectCount >= 1){
-                return res.status(429).json({
-                    msg:"Project limit reached",
-                    current:projectCount
-                })
-            }
-
-             const titleGeneratorLLM = new ChatGoogleGenerativeAI({
-                model: "gemini-2.5-flash",
-                temperature: 0
-              })
+        }
         
+        const projectCount = await prisma.project.count({
+            where:{userId}
+        })
+        if(projectCount >= 1){
+            return res.status(429).json({
+                msg:"Project limit reached",
+                current:projectCount
+            })
+        }
+        
+        const enhancedInitialPrompt = await promptEnhancerLLM.invoke([
+            new SystemMessage(process.env.PROMPT_ENHANCER_SYSTEM_PROMPT!),
+            new HumanMessage(initialPrompt)
+            ])
+    
+        const enhancedPrompt = enhancedInitialPrompt.content as string;
+        console.log("THIS IS THE ENHANCED PROJECT BY LLM", enhancedPrompt)
+        // process.exit(0);
+            
+            console.log("Reached title generator llm")
               const aiGivenTitle = await titleGeneratorLLM.invoke([
-                new SystemMessage("Please generate a 3 to 4 word maximum meaningful summary or the title from the user given initial prompt. Your task is to only give the title of the project. Give the relevant title for the prompt or the project in maximum 3 to 4 words. Please make sure the title is meaningful and represents the project user is trying to create. Do not hallucinate, only give whats really relevant and related to the users prompt. Read the users prompt better and give the best title."),
+                new SystemMessage(process.env.TITLE_GENERATOR_SYSTEM_PROMPT!),
                 new HumanMessage(initialPrompt)
               ])
               const title = aiGivenTitle.content as string;
@@ -51,6 +63,7 @@ router.post('/project', async (req : express.Request, res: express.Response) => 
                 id,
                 title,
                 initialPrompt,
+                enhancedPrompt,
                 userId
             }
         })

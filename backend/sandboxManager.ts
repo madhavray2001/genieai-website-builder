@@ -49,7 +49,7 @@ export async function getSandbox(projectId: string, userId: string): Promise<San
   console.log(`Creating NEW sandbox for ${userId}...`);
 
   // timeoutMs:1800000
-  const sandbox = await Sandbox.create('8yn0aii31bapkinrarai', {
+  const sandbox = await Sandbox.create(process.env.E2B_SANDBOX_TEMPLATE!, {
     timeoutMs: SANDBOX_TIMEOUT
   });
 

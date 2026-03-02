@@ -32,21 +32,27 @@ export async function runAgent(userId: string, projectId: string, conversationSt
     type:'thinking',
     content:"Thinking...."}))
 
-  console.log("RUNNING LLM")
+    console.log("Reached code generator llm")
 
-  const llm = new ChatGoogleGenerativeAI({
-    model: "gemini-2.5-flash",
-    temperature: 1
-  })
 
-  //   const llm = new ChatAnthropic({
-  //   model: "claude-sonnet-4-5-20250929",
-  //   temperature: 0,
-  // });
+  // const llm = new ChatGoogleGenerativeAI({
+  //   model: "gemini-2.5-flash",
+  //   temperature: 1
+  // })
+
+    const llm = new ChatAnthropic({
+    model: "claude-sonnet-4-5-20250929",
+    temperature: 0,
+  });
 
 
   const summariserLLM = new ChatGoogleGenerativeAI({
     model: "gemini-2.5-flash-lite",
+    temperature: 0
+  })
+
+  const finalNodeLLM = new ChatGoogleGenerativeAI({
+    model: "gemini-2.5-flash",
     temperature: 0
   })
 
@@ -111,7 +117,7 @@ export async function runAgent(userId: string, projectId: string, conversationSt
     type:'validating',
     content:"Validating...."}))
 
-        // Let vite warm
+        // let vite warm
         await new Promise((r) => setTimeout(r, 300));
 
         const host = sandbox.getHost(5173);
@@ -347,8 +353,9 @@ export async function runAgent(userId: string, projectId: string, conversationSt
       };
     }
 
-    const llmText = await llm.invoke([
-      new SystemMessage("Summarize what you have done. Speak directly to the user. No tools. No code. Just a short final message. Also if the message contains summary then you need to understand that the user is following up in the chat and you need to give the response to that follow up as well."),
+    console.log("reached final message generator LLM")
+    const llmText = await finalNodeLLM.invoke([
+      new SystemMessage(process.env.FINAL_AI_RESPONSE_SYSTEM_PROMPT!),
       ...state.messages
     ]);
 
@@ -505,37 +512,10 @@ export async function runAgent(userId: string, projectId: string, conversationSt
       })
       .join('\n---\n');
 
+      console.log("Reached summariser LLM")
+
     const summary = await summariserLLM.invoke([
-      new SystemMessage(`You are summarizing a conversation between a user and an AI coding agent. 
-
-      Your summary will be given to a FRESH AI agent (with no memory) to continue the work.
-
-    CRITICAL REQUIREMENTS:
-    1. Include the COMPLETE, CURRENT code for ALL files that were created/modified
-    2. Use markdown code blocks with file paths as headers
-    3. Explain what the user originally wanted
-    4. Explain what changes were just made
-    5. If the user is asking for follow-up changes, explain what they want changed
-
-    FORMAT:
-    ## Current Project State
-
-    [Brief description of what was built]
-
-    ### File: src/App.jsx
-    \`\`\`jsx
-    [FULL CODE HERE]
-    \`\`\`
-
-    ### File: src/App.css
-    \`\`\`css
-    [FULL CODE HERE]
-    \`\`\`
-
-    ## User's Latest Request
-    [What the user is now asking for]
-
-    REMEMBER: The next agent has ZERO context. It needs the COMPLETE current code to make changes.`),
+      new SystemMessage(process.env.SUMMARY_AGENT_SYSTEM_PROMPT!),
       new HumanMessage(fullContextText)
     ]);
 
