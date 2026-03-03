@@ -24,8 +24,8 @@ const RateLimitAlert = ({open, onOpenChange}:RateLimitAlertProps) => {
         <AlertDialogHeader>
           <AlertDialogTitle>Maximum project limit reached</AlertDialogTitle>
           <AlertDialogDescription>
-            I'm sorry but this is just a hobby project and I don't have enough tokens to serve more requests.
-            If you're enjoying it, feel free to reach out at poudelsamadesh@gmail.com or DM @SamadeshPoudel on X (Twitter).
+            Sorry - this is just a hobby project, and I don't have enough tokens to serve more requests. If you'd like to discuss anything related to this project, feel free to email me at poudelsamadesh@gmail.com
+            or DM @SamadeshPoudel on X.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
