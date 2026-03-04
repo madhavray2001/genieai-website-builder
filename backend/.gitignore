@@ -4,6 +4,8 @@ node_modules
 #files
 test.ts
 testSysPrompts.ts
+llmMessage.txt
+llmMessageCleanData.txt
 
 # output
 out

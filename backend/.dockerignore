@@ -1,0 +1,12 @@
+node_modules
+.env
+.git
+*.log
+.next
+dist
+coverage
+.DS_Store
+test.ts
+testSysPrompts.ts
+llmMessage.txt
+llmMsgCleanData.txt
