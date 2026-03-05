@@ -1,4 +1,4 @@
-import { Stream } from '@/app/project/[id]/page'
+import { Stream } from '@/app/project/[id]/ClientPage'
 import { ShieldCheck } from 'lucide-react'
 
 const ValidatingStream = ({stream}:{stream:Stream}) => {

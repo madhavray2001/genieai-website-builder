@@ -13,8 +13,8 @@ import {
 } from "@/components/ui/sidebar"
 import { Home, FolderOpen, Settings, Plus } from "lucide-react"
 import ProjectList from "../ProjectList"
-import { Project, PromptFocusContext } from "@/app/page"
 import { useContext } from "react"
+import { Project, PromptFocusContext } from "@/lib/PromptFocusContext"
 
 interface ProjectList{
     projects:Project[]

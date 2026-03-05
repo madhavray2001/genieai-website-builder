@@ -1,7 +1,7 @@
 import NextAuth, { NextAuthOptions } from "next-auth"
 import GoogleProvider from "next-auth/providers/google";
 
-export const authOptions: NextAuthOptions = {
+const authOptions: NextAuthOptions = {
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
@@ -18,7 +18,7 @@ export const authOptions: NextAuthOptions = {
       }
       if(user){
          try {
-          const res = await fetch('http://localhost:5000/api/createUser',{
+          const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL!}/api/createUser`,{
             method:'POST',
             headers:{
               'Content-Type':'application/json'

@@ -2,21 +2,14 @@
 import type React from "react"
 import { PromptInput } from "@/components/prompt-input"
 import { Navbar } from "@/components/navbar"
-import { createContext, useContext, useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { AppSidebar } from "@/components/ui/app-sidebar"
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
-import { Spinner, SpinnerCustom } from "@/components/ui/spinner"
+import { SpinnerCustom } from "@/components/ui/spinner"
+import { Project, PromptFocusContext } from "@/lib/PromptFocusContext"
 
-export interface Project {
-  id: string;
-  title: string;
-  initialPrompt: string;
-  createdAt: string;
-}
-
-export const PromptFocusContext = createContext<(()=>void) | null>(null)
 
 export default function HomePage() {
   const { data: session, status } = useSession();
@@ -41,7 +34,7 @@ export default function HomePage() {
           console.log("this is the intial prompt", initialPrompt);
           sessionStorage.removeItem('pendingProject');
           try {
-            await fetch(`http://localhost:5000/api/project?id=${projectId}`, {
+            await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL!}/api/project?id=${projectId}`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json'
@@ -62,7 +55,7 @@ export default function HomePage() {
     const fetchProjects = async () => {
       if (status === 'authenticated' && session?.user?.id) {
         try {
-          const res = await fetch(`http://localhost:5000/api/projects/${session.user.id}`)
+          const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL!}/api/projects/${session.user.id}`)
           const data = await res.json();
           setProjects(data.projects || [])
           console.log("fetching projects:", data.projects);

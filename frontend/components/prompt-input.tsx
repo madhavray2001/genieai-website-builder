@@ -76,7 +76,7 @@ export const PromptInput = forwardRef<{ focus: () => void }, PromptInputProps>(
       setSubmitting(true)
 
       try {
-        const res = await fetch(`http://localhost:5000/api/project?id=${id}`, {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL!}/api/project?id=${id}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -104,7 +104,7 @@ export const PromptInput = forwardRef<{ focus: () => void }, PromptInputProps>(
       const currentValue = value;
       setValue('');
       try {
-        const res = await fetch(`http://localhost:5000/conversation?id=${projectId}`, {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL!}/conversation?id=${projectId}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'

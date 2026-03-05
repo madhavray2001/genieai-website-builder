@@ -1,4 +1,4 @@
-import { Message } from "@/app/project/[id]/page";
+import { Message } from "@/app/project/[id]/ClientPage";
 
 export interface FileNode{
     name:string,

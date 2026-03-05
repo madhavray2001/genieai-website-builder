@@ -1,4 +1,4 @@
-import { Stream } from '@/app/project/[id]/page'
+import { Stream } from '@/app/project/[id]/ClientPage'
 import { Activity } from 'lucide-react'
 
 const BuildingStream = ({stream}:{stream:Stream}) => {

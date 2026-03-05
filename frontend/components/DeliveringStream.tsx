@@ -1,4 +1,4 @@
-import { Stream } from "@/app/project/[id]/page"
+import { Stream } from "@/app/project/[id]/ClientPage"
 import { Package } from "lucide-react"
 
 const DeliveringStream = ({stream}:{stream:Stream}) => {

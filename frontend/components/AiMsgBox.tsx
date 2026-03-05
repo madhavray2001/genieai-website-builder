@@ -1,4 +1,4 @@
-import { Message } from '@/app/project/[id]/page'
+import { Message } from '@/app/project/[id]/ClientPage'
 import React from 'react'
 
 const AiMsgBox = ({message}:{message:Message}) => {

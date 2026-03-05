@@ -1,4 +1,4 @@
-import { Message } from '@/app/project/[id]/page';
+import { Message } from '@/app/project/[id]/ClientPage'
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import React, { useState } from 'react'
@@ -31,7 +31,7 @@ const ProjectList = ({id, title}:{id:string, title:string}) => {
     const openProject = async () => {
         try {
             setLoading(true);
-            const response = await fetch(`http://localhost:5000/api/project/load/${id}?userId=${session?.user.id}`);
+            const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL!}/api/project/load/${id}?userId=${session?.user.id}`);
             const data = await response.json();
             console.log("Checking data fetched by loaded project api", data)
             //transforming the db format of msg to the fe format
