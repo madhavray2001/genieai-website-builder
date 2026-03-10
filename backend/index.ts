@@ -15,7 +15,14 @@ import userRoute from "./routes/userRoute"
 
 const app = express();
 app.use(express.json())
-app.use(cors());
+app.use(cors({
+  origin: [
+    'http://localhost:3000',
+    'https://genie-ai-website-builder.vercel.app',
+    'https://genieai.samadesh.com',
+  ],
+  credentials: true
+}));
 app.use('/api', projectRoute);
 app.use('/api', userRoute)
 const server = http.createServer(app);
