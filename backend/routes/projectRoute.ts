@@ -3,6 +3,7 @@ import { PrismaClient } from "../generated/prisma";
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { getSandbox } from "../sandboxManager";
+import { PROMPT_ENHANCER_SYSTEM_PROMPT, TITLE_GENERATOR_SYSTEM_PROMPT } from "../systemPrompt";
 const router = express.Router();
 const prisma = new PrismaClient();
 
@@ -41,7 +42,7 @@ router.post('/project', async (req : express.Request, res: express.Response) => 
         }
         
         const enhancedInitialPrompt = await promptEnhancerLLM.invoke([
-            new SystemMessage(process.env.PROMPT_ENHANCER_SYSTEM_PROMPT!),
+            new SystemMessage(PROMPT_ENHANCER_SYSTEM_PROMPT),
             new HumanMessage(initialPrompt)
             ])
     
@@ -51,7 +52,7 @@ router.post('/project', async (req : express.Request, res: express.Response) => 
             
             console.log("Reached title generator llm")
               const aiGivenTitle = await titleGeneratorLLM.invoke([
-                new SystemMessage(process.env.TITLE_GENERATOR_SYSTEM_PROMPT!),
+                new SystemMessage(TITLE_GENERATOR_SYSTEM_PROMPT),
                 new HumanMessage(initialPrompt)
               ])
               const title = aiGivenTitle.content as string;

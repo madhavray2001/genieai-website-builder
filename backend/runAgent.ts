@@ -9,7 +9,7 @@ import { SystemMessage } from "@langchain/core/messages";
 import { isAIMessage, ToolMessage } from "@langchain/core/messages";
 import Sandbox from "@e2b/code-interpreter";
 import 'dotenv/config'
-import { systemPrompt } from "./systemPrompt";
+import { FINAL_AI_RESPONSE_SYSTEM_PROMPT, SUMMARY_AGENT_SYSTEM_PROMPT, systemPrompt } from "./systemPrompt";
 import { PrismaClient } from "./generated/prisma";
 import { ChatAnthropic } from "@langchain/anthropic";
 import { scanLLM, secureCommand, secureFilePath } from "./guardrails";
@@ -355,7 +355,7 @@ export async function runAgent(userId: string, projectId: string, conversationSt
 
     console.log("reached final message generator LLM")
     const llmText = await finalNodeLLM.invoke([
-      new SystemMessage(process.env.FINAL_AI_RESPONSE_SYSTEM_PROMPT!),
+      new SystemMessage(FINAL_AI_RESPONSE_SYSTEM_PROMPT),
       ...state.messages
     ]);
 
@@ -515,7 +515,7 @@ export async function runAgent(userId: string, projectId: string, conversationSt
       console.log("Reached summariser LLM")
 
     const summary = await summariserLLM.invoke([
-      new SystemMessage(process.env.SUMMARY_AGENT_SYSTEM_PROMPT!),
+      new SystemMessage(SUMMARY_AGENT_SYSTEM_PROMPT),
       new HumanMessage(fullContextText)
     ]);
 
