@@ -12,6 +12,7 @@ services:
       - AWS_REGION=${AWS_REGION}
       - S3_BUCKET_NAME=${S3_BUCKET_NAME}
       - E2B_SANDBOX_TEMPLATE=${E2B_SANDBOX_TEMPLATE}
+      - E2B_API_KEY=${E2B_API_KEY}
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
     restart: unless-stopped
