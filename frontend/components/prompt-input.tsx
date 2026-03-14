@@ -104,7 +104,7 @@ export const PromptInput = forwardRef<{ focus: () => void }, PromptInputProps>(
       const currentValue = value;
       setValue('');
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL!}/conversation?id=${projectId}`, {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL!}/api/conversation?id=${projectId}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'

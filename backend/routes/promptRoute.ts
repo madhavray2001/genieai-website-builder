@@ -1,8 +1,9 @@
 import express from "express";
 import { PrismaClient } from "../generated/prisma";
 import { getSandbox, saveProject } from "../sandboxManager";
-import { HumanMessage, type BaseMessage } from "langchain";
+import { HumanMessage, type BaseMessage } from "@langchain/core/messages";
 import { MessagesZodMeta } from "@langchain/langgraph";
+import { registry } from "@langchain/langgraph/zod";
 import * as z from "zod";
 import {users} from "../index";
 import { runAgent } from "../runAgent";

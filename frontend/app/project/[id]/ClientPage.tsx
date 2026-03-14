@@ -156,7 +156,7 @@ export default function ClientPage ({ params, searchParams }: {
                     const enhancedPromptFromDB = data.data.enhancedPrompt;
                     setInitialPrompt(initialPromptFromDB);
 
-                    const message = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL!}/prompt?projectId=${id}`, {
+                    const message = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL!}/api/prompt?projectId=${id}`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
