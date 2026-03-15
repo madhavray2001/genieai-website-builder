@@ -1,6 +1,5 @@
 import 'dotenv/config'
 import express from "express";
-import cors from 'cors';
 import { WebSocketServer } from "ws";
 import http from 'http';
 import projectRoute from "./routes/projectRoute";
@@ -9,15 +8,6 @@ import promptRoute from "./routes/promptRoute"
 
 const app = express();
 app.use(express.json())
-app.use(cors({
-  origin: [
-    'http://localhost:3000',
-    'https://genie-ai-website-builder.vercel.app',
-    'https://genieai.samadesh.com',
-  ],
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH']
-}));
 app.use('/api', projectRoute);
 app.use('/api', userRoute)
 app.use('/api', promptRoute)

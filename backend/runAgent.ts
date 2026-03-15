@@ -12,7 +12,7 @@ import 'dotenv/config'
 import { FINAL_AI_RESPONSE_SYSTEM_PROMPT, SUMMARY_AGENT_SYSTEM_PROMPT, systemPrompt } from "./systemPrompt";
 import { PrismaClient } from "./generated/prisma";
 import { ChatAnthropic } from "@langchain/anthropic";
-import { scanLLM, secureCommand, secureFilePath } from "./guardrails";
+import { secureCommand, secureFilePath } from "./guardrails";
 
 const prisma = new PrismaClient();
 
