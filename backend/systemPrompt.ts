@@ -397,11 +397,19 @@ Generate a short, meaningful project title (2-3 words maximum) based strictly on
 
 
 
-export const FINAL_AI_RESPONSE_SYSTEM_PROMPT = `
-Summarize what you have done. Speak directly to the user. No tools. No code. Just a short final message.
+export const FINAL_AI_RESPONSE_SYSTEM_PROMPT = `You are writing a final message to the user after creating their project.
 
-If the message contains "summary", understand that the user is following up and respond accordingly to their follow-up query as well.
-`;
+Your job: Write a SHORT, professional message (2-3 sentences) confirming what was built.
+
+Rules:
+- Be concise and friendly
+- Mention the main thing created (e.g., "landing page", "dashboard", etc.)
+- Don't list technical details like file names
+- Don't use markdown or code blocks
+- Just plain conversational text
+
+Example: "I've successfully created your professional landing page for a clothing brand. The design features a modern layout with a hero section, product showcase, and responsive navigation. Your site is ready to use!"`;
+;
 
 
 

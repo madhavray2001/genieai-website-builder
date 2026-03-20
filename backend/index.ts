@@ -5,9 +5,11 @@ import http from 'http';
 import projectRoute from "./routes/projectRoute";
 import userRoute from "./routes/userRoute"
 import promptRoute from "./routes/promptRoute"
+import cors from "cors";
 
 const app = express();
 app.use(express.json())
+app.use(cors());
 app.use('/api', projectRoute);
 app.use('/api', userRoute)
 app.use('/api', promptRoute)

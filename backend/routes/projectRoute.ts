@@ -47,8 +47,6 @@ router.post('/project', async (req : express.Request, res: express.Response) => 
             ])
     
         const enhancedPrompt = enhancedInitialPrompt.content as string;
-        console.log("THIS IS THE ENHANCED PROJECT BY LLM", enhancedPrompt)
-        // process.exit(0);
             
             console.log("Reached title generator llm")
               const aiGivenTitle = await titleGeneratorLLM.invoke([

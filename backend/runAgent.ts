@@ -36,7 +36,7 @@ export async function runAgent(userId: string, projectId: string, conversationSt
 
 
   // const llm = new ChatGoogleGenerativeAI({
-  //   model: "gemini-2.5-flash",
+  //   model: "gemini-2.5-flash-lite",
   //   temperature: 1
   // })
 
@@ -114,8 +114,8 @@ export async function runAgent(userId: string, projectId: string, conversationSt
         console.log(`Validating via Vite module transform: ${filePath}`);
 
          client.send(JSON.stringify({
-    type:'validating',
-    content:"Validating...."}))
+          type:'validating',
+          content:"Validating...."}))
 
         // let vite warm
         await new Promise((r) => setTimeout(r, 300));
@@ -159,7 +159,7 @@ export async function runAgent(userId: string, projectId: string, conversationSt
         __VALIDATION_FAILED__`;
       }
 
-      // Tell FE to reload iframe
+      // Tell fe to reload iframe
       client?.send(JSON.stringify({ type: "refresh_preview" }));
 
       return `File created successfully at ${filePath}`;
@@ -182,9 +182,9 @@ export async function runAgent(userId: string, projectId: string, conversationSt
       const { command } = RunShellCommandSchema.parse(input);
       //command guardrail
       secureCommand(command);
-      // Always run commands in /home/user
+      // always run commands in /home/user
       await sandbox.commands.run(command, {
-        cwd: '/home/user',  // ← Force working directory
+        cwd: '/home/user',  // forcing working directory
         onStdout: (data) => {
           console.log("cmd out:", data)
         }
@@ -253,7 +253,7 @@ export async function runAgent(userId: string, projectId: string, conversationSt
     const tool = toolsByName[toolCall.name];
     
     try {
-      // Validate tool call BEFORE execution
+      // Validate tool call before execution
       if (toolCall.name === 'create_file') {
         if (!toolCall.args?.filePath) {
           throw new Error("create_file called without filePath argument");
@@ -269,8 +269,8 @@ export async function runAgent(userId: string, projectId: string, conversationSt
       client?.send(JSON.stringify(observation?.content));
 
       client.send(JSON.stringify({
-    type:'building',
-    content:"Building...."}))
+      type:'building',
+      content:"Building...."}))
 
       const contentStr = typeof observation?.content === 'string'
         ? observation.content
@@ -369,13 +369,12 @@ export async function runAgent(userId: string, projectId: string, conversationSt
 
     if (!last || !isAIMessage(last)) return END;
 
-    // Check validation failures FIRST
     if ((state.validationFailures ?? 0) >= 3) {
       console.log("Max validation failure reached");
       return "finalNode";
     }
 
-    // Check for recent validation error in last 2 messages
+    // Check for recent validation error in last two messages
     const recentToolMessages = state.messages
       .slice(-2)
       .filter(m => m.getType() === 'tool');
@@ -410,10 +409,17 @@ export async function runAgent(userId: string, projectId: string, conversationSt
 
     const isMeaningful = text.length > 0;
 
+    // iff coding agent gave meaningful response, skip final node
+    if ( isMeaningful && text.length > 50) {
+    console.log("Coding agent gave good response, skipping finalNode");
+    return END;
+    }
+
     if (!isMeaningful && (state.llmCalls ?? 0) < 4) {
       return "llmCall";
     }
 
+    console.log("ROuting to final node to generate the final user response");
     return "finalNode";
   }
 
@@ -422,7 +428,7 @@ export async function runAgent(userId: string, projectId: string, conversationSt
     .addNode("toolNode", toolNode)
     .addNode("finalNode", finalNode)
     .addEdge(START, "llmCall")
-    .addConditionalEdges("llmCall", shouldContinue, ["toolNode", "llmCall", "finalNode"])
+    .addConditionalEdges("llmCall", shouldContinue, ["toolNode", "llmCall", "finalNode", END])
     .addEdge("toolNode", "llmCall")
     .addEdge("finalNode", END)
     .compile();
@@ -449,8 +455,9 @@ export async function runAgent(userId: string, projectId: string, conversationSt
   //   console.log(' Error checking files:', error);
   // }
 
-  // console.log("this is the result.messages::", result.messages);
-  // console.log("Number of llm calls", result.llmCalls);
+  console.log("this is the result.messages::", result.messages);
+  console.log("Number of llm calls", result.llmCalls);
+  
   const allMessages = result.messages;
   console.log("Length of all messages is:", allMessages.length)
 
@@ -487,6 +494,7 @@ export async function runAgent(userId: string, projectId: string, conversationSt
 
   //calling summariserLLM to summarise the context
   // previously i tested this result.llmCalls >= 3 as well as this allMessages.length >= 4
+
   if (allMessages.length >= 4) {
     // Build a richer context that includes actual code from tool calls
     const fullContextText = allMessages
@@ -520,7 +528,7 @@ export async function runAgent(userId: string, projectId: string, conversationSt
     ]);
 
     conversationState.summary = summary.content;
-    console.log("this is a summary::", conversationState.summary);
+    // console.log("this is a summary::", conversationState.summary);
 
     // Keep only last user message + summary
     const lastUserMessage = [...allMessages].reverse().find(m => m.getType() === 'human') as HumanMessage;
@@ -542,7 +550,7 @@ export async function runAgent(userId: string, projectId: string, conversationSt
   //   }))
   // }
 
-  // FIXED: Get ALL AI messages with tool calls (not just first one)
+  //Get ALL AI messages with tool calls (not just first one)
   const allToolCalls = result.messages
     .filter(m => m.getType() === "ai" && m.tool_calls?.length > 0)
     .flatMap(m => m.tool_calls || []);
@@ -571,8 +579,7 @@ export async function runAgent(userId: string, projectId: string, conversationSt
   function isNonEmptyAI(m: BaseMessage) {
     if (m.getType() !== "ai") return false;
 
-    // Ignore tool-call AI messages
-    // @ts-ignore
+    // ignore tool-call AI messages
     if (m.tool_calls && m.tool_calls.length > 0) return false;
 
     const content = m.content as any;
@@ -590,7 +597,7 @@ export async function runAgent(userId: string, projectId: string, conversationSt
     return false;
   }
 
-  // Find the correct final AI message (skip empty ones)
+  // finding the correct final AI message, skipping empty ones
   const finalAI = [...result.messages].reverse().find(isNonEmptyAI);
 
   if (finalAI) {

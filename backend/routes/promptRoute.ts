@@ -27,7 +27,7 @@ router.post("/prompt", async (req: express.Request, res: express.Response) => {
   const {prompt,enhancedPrompt ,userId } = req.body;
   const projectId = req.query.projectId as string;
   console.log("prompt by user:", prompt);
-  console.log("enhanced prompt by an agent", enhancedPrompt);
+//   console.log("enhanced prompt by an agent", enhancedPrompt);
 
   try {
     
