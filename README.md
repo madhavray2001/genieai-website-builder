@@ -112,7 +112,7 @@ Ensure you have the following installed and configured:
 
 1. **Clone the repository**
 ```bash
-git clone https://github.com/yourusername/genieai.git
+git clone https://github.com/SamadeshPoudel/GenieAI-website-builder
 cd genieai
 ```
 
