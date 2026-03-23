@@ -417,7 +417,7 @@ export default function ClientPage ({ params, searchParams }: {
                             <TabsContent value="code" className='h-full m-0'>
                                 <div className="flex h-full">
                                     {/* File Tree - Always on the left */}
-                                    <div className="w-48 sm:w-56 md:w-64 bg-[#252424] text-white overflow-y-auto border-r border-[#292929] flex-shrink-0">
+                                    <div className="w-42 sm:w-42 md:w-48 bg-[#252424] text-white overflow-y-auto border-r border-[#292929] flex-shrink-0">
                                         <div className="p-3 lg:p-4 border-b border-[#292929] sticky top-0 bg-[#252424] z-10">
                                             <h2 className="font-bold text-sm lg:text-base">Files</h2>
                                         </div>
