@@ -2,6 +2,8 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+
+  allowedDevOrigins: ['local-origin.dev', '*.local-origin.dev'],
   
   // Disable ESLint during production builds
   eslint: {

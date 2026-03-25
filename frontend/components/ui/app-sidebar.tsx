@@ -11,10 +11,11 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import { Home, FolderOpen, Settings, Plus } from "lucide-react"
+import { Home, FolderOpen, Settings, Plus, LogOut } from "lucide-react"
 import ProjectList from "../ProjectList"
 import { useContext } from "react"
 import { Project, PromptFocusContext } from "@/lib/PromptFocusContext"
+import { signOut } from "next-auth/react"
 
 interface ProjectList{
     projects:Project[]
@@ -80,9 +81,9 @@ export function AppSidebar({projects}:ProjectList) {
       <SidebarFooter className="border-t border-sidebar-border p-4">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton>
-              <Settings />
-              <span>Settings</span>
+            <SidebarMenuButton onClick={() => signOut({ callbackUrl: '/', redirect:true })} className="cursor-pointer">
+              <LogOut />
+              <span>Sign Out</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
