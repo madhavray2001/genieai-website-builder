@@ -34,7 +34,7 @@ router.post('/project', async (req : express.Request, res: express.Response) => 
         const projectCount = await prisma.project.count({
             where:{userId}
         })
-        if(projectCount >= 1){
+        if(projectCount >= 2){
             return res.status(429).json({
                 msg:"Project limit reached",
                 current:projectCount

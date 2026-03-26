@@ -254,14 +254,14 @@ export async function runAgent(userId: string, projectId: string, conversationSt
     
     try {
       // Validate tool call before execution
-      if (toolCall.name === 'create_file') {
-        if (!toolCall.args?.filePath) {
-          throw new Error("create_file called without filePath argument");
-        }
-        if (!toolCall.args?.content) {
-          throw new Error(`create_file called for ${toolCall.args.filePath} without content argument`);
-        }
-      }
+      // if (toolCall.name === 'create_file') {
+      //   if (!toolCall.args?.filePath) {
+      //     throw new Error("create_file called without filePath argument");
+      //   }
+      //   if (!toolCall.args?.content) {
+      //     throw new Error(`create_file called for ${toolCall.args.filePath} without content argument`);
+      //   }
+      // }
 
       const observation = await tool?.invoke(toolCall);
       result.push(observation!);
