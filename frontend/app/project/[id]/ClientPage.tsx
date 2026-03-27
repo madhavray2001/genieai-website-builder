@@ -217,10 +217,10 @@ export default function ClientPage ({ params, searchParams }: {
 
                     const current = iframe.src;
 
-                    if (!current.includes(":5173")) {
-                        console.log("Not refreshing — iframe not ready");
-                        return;
-                    }
+                    // if (!current.includes(":5173")) {
+                    //     console.log("Not refreshing — iframe not ready");
+                    //     return;
+                    // }
 
                     iframe.src = current.split("?")[0] + "?t=" + Date.now();
                     break;
