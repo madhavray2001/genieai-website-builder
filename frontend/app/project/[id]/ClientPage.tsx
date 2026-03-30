@@ -222,7 +222,14 @@ export default function ClientPage ({ params, searchParams }: {
                         return;
                     }
 
+                    // iframe.src = current.split("?")[0] + "?t=" + Date.now();
+                        try {
+                     iframe.contentWindow?.location.reload();
+                     console.log("Iframe reloaded via contentWindow");
+                    } catch (err) {
                     iframe.src = current.split("?")[0] + "?t=" + Date.now();
+                    console.log("Iframe refreshed via src change:", iframe.src);
+                     }
                     break;
                 }
 
