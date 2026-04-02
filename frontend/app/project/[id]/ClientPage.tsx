@@ -318,7 +318,7 @@ export default function ClientPage ({ params, searchParams }: {
             {/* Navbar */}
             <div 
                 onClick={() => router.push('/')} 
-                className='bg-black h-12 text-amber-50 font-extrabold p-2 mx-2 cursor-pointer flex-shrink-0 flex items-center'
+                className=' hidden sm:flex bg-black h-12 text-amber-50 font-extrabold p-2 mx-2 cursor-pointer flex-shrink-0 flex items-center'
             >
                 <Image
                     src="/logo.svg"
