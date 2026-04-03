@@ -52,7 +52,7 @@ interface PromptResponse {
 export default function ClientPage ({ params, searchParams }: {
   params: { id: string },
   searchParams?: { prompt?: string }
-}) {
+    }) {
     const prompt = searchParams?.prompt
     const router = useRouter();
     const [projectUrl, setprojectUrl] = useState<string | null>(null);
@@ -66,24 +66,25 @@ export default function ClientPage ({ params, searchParams }: {
     const [fileTree, setFileTree] = useState<FileNode[]>([]);
     const [selectedFile, setSelectedFile] = useState<FileNode | null>(null);
     const [iframeLoading, setIframeLoading] = useState(true);
-    const [pendingRefresh, setPendingRefresh] = useState(false);
+    // const [pendingRefresh, setPendingRefresh] = useState(false);
     const [streams, setStreams] = useState<Stream[]>([])
     const [isStreaming, setIsStreaming] = useState(true)
     const isLoadingFromDBRef = useRef(false);
     const [activeView, setActiveView] = useState<'chat' | 'preview'>('chat');
 
-    const handleIframeLoad = () => {
-    setIframeLoading(false);
+    // const handleIframeLoad = () => {
+    // console.log("Iframe onload fired");
+    // setIframeLoading(false);
     
-    if (pendingRefresh) {
-        console.log("Iframe loaded, executing pending refresh");
-        const iframe = document.querySelector("iframe") as HTMLIFrameElement;
-        if (iframe?.src && iframe.src.includes(":5173")) {
-            iframe.src = iframe.src.split("?")[0] + "?t=" + Date.now();
-        }
-        setPendingRefresh(false);
-    }
-};
+    // if (pendingRefresh) {
+    //     console.log("Iframe loaded, executing pending refresh");
+    //     const iframe = document.querySelector("iframe") as HTMLIFrameElement;
+    //     if (iframe?.src && iframe.src.includes(":5173")) {
+    //         iframe.src = iframe.src.split("?")[0] + "?t=" + Date.now();
+    //     }
+    //     setPendingRefresh(false);
+    // }
+    // };
 
     // When messages update, rebuild file tree
     useEffect(() => {
@@ -223,41 +224,41 @@ export default function ClientPage ({ params, searchParams }: {
                     }]);
                     break;
 
-                // case "refresh_preview": {
-                //     console.log("Refreshing iframe preview...");
-
-                //     const iframe = document.querySelector("iframe");
-                //     if (!iframe){
-                //         console.log("No iframe found")
-                //        return; 
-                //     } 
-
-                //     const current = iframe.src;
-
-                //     if (!current.includes(":5173")) {
-                //         console.log("Not refreshing — iframe not ready");
-                //         return;
-                //     }
-
-                //     iframe.src = current.split("?")[0] + "?t=" + Date.now();
-                //     break;
-                // }
-
                 case "refresh_preview": {
-                    console.log("Received refresh_preview command");
-                    
-                    const iframe = document.querySelector("iframe") as HTMLIFrameElement;
-                    
-                    if (!iframe || !iframe.src || !iframe.src.includes(":5173")) {
-                        console.log("Iframe not ready yet, marking for refresh on load");
-                        setPendingRefresh(true);
+                    console.log("Refreshing iframe preview...");
+
+                    const iframe = document.querySelector("iframe");
+                    if (!iframe){
+                        console.log("No iframe found")
+                       return; 
+                    } 
+
+                    const current = iframe.src;
+
+                    if (!current.includes(":5173")) {
+                        console.log("Not refreshing — iframe not ready");
                         return;
                     }
 
-                    iframe.src = iframe.src.split("?")[0] + "?t=" + Date.now();
-                    console.log("Iframe refreshed immediately");
+                    iframe.src = current.split("?")[0] + "?t=" + Date.now();
                     break;
                 }
+
+                // case "refresh_preview": {
+                //     console.log("Received refresh_preview command");
+                    
+                //     const iframe = document.querySelector("iframe") as HTMLIFrameElement;
+                    
+                //     if (!iframe || !iframe.src || !iframe.src.includes(":5173")) {
+                //         console.log("Iframe not ready yet, marking for refresh on load");
+                //         setPendingRefresh(true);
+                //         return;
+                //     }
+
+                //     iframe.src = iframe.src.split("?")[0] + "?t=" + Date.now();
+                //     console.log("Iframe refreshed immediately");
+                //     break;
+                // }
 
                 case "thinking":
                     setIsStreaming(true)
@@ -302,9 +303,9 @@ export default function ClientPage ({ params, searchParams }: {
     }, [id])
 
     // Handle iframe load
-    // const handleIframeLoad = () => {
-    //     setIframeLoading(false);
-    // };
+    const handleIframeLoad = () => {
+        setIframeLoading(false);
+    };
 
     // Reset loading state when projectUrl changes
     useEffect(() => {
