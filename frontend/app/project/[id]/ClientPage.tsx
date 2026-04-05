@@ -66,27 +66,11 @@ export default function ClientPage ({ params, searchParams }: {
     const [fileTree, setFileTree] = useState<FileNode[]>([]);
     const [selectedFile, setSelectedFile] = useState<FileNode | null>(null);
     const [iframeLoading, setIframeLoading] = useState(true);
-    // const [pendingRefresh, setPendingRefresh] = useState(false);
     const [streams, setStreams] = useState<Stream[]>([])
     const [isStreaming, setIsStreaming] = useState(true)
     const isLoadingFromDBRef = useRef(false);
     const [activeView, setActiveView] = useState<'chat' | 'preview'>('chat');
 
-    // const handleIframeLoad = () => {
-    // console.log("Iframe onload fired");
-    // setIframeLoading(false);
-    
-    // if (pendingRefresh) {
-    //     console.log("Iframe loaded, executing pending refresh");
-    //     const iframe = document.querySelector("iframe") as HTMLIFrameElement;
-    //     if (iframe?.src && iframe.src.includes(":5173")) {
-    //         iframe.src = iframe.src.split("?")[0] + "?t=" + Date.now();
-    //     }
-    //     setPendingRefresh(false);
-    // }
-    // };
-
-    // When messages update, rebuild file tree
     useEffect(() => {
         if (messages.length > 0 && !isLoadingFromDBRef.current) {
             const files = extractFilesFromMessages(messages);
@@ -123,7 +107,6 @@ export default function ClientPage ({ params, searchParams }: {
 
         async function initializeProject() {
             try {
-                // Checking session storage if the project exists there
                 const currentProjectState = sessionStorage.getItem(`project_${id}`);
 
                 if (currentProjectState) {
@@ -243,22 +226,6 @@ export default function ClientPage ({ params, searchParams }: {
                     iframe.src = current.split("?")[0] + "?t=" + Date.now();
                     break;
                 }
-
-                // case "refresh_preview": {
-                //     console.log("Received refresh_preview command");
-                    
-                //     const iframe = document.querySelector("iframe") as HTMLIFrameElement;
-                    
-                //     if (!iframe || !iframe.src || !iframe.src.includes(":5173")) {
-                //         console.log("Iframe not ready yet, marking for refresh on load");
-                //         setPendingRefresh(true);
-                //         return;
-                //     }
-
-                //     iframe.src = iframe.src.split("?")[0] + "?t=" + Date.now();
-                //     console.log("Iframe refreshed immediately");
-                //     break;
-                // }
 
                 case "thinking":
                     setIsStreaming(true)

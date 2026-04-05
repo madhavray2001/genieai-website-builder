@@ -21,12 +21,18 @@ const MessageState = z.object({
   llmCalls: z.number().optional(),
   summary: z.string().optional(),
   summariserLLMCalls: z.number().optional(),
-  validationFailures: z.number().optional()
+  validationFailures: z.number().optional(),
+  pendingValidations:z.array(z.string()).optional(),
+  createdFiles: z.array(z.string()).optional()
 })
 
 type State = z.infer<typeof MessageState>;
 
 export async function runAgent(userId: string, projectId: string, conversationState: State, client: WebSocket, sandbox: Sandbox):Promise<void> {
+
+  if(!conversationState.createdFiles){
+    conversationState.createdFiles=[]
+  }
 
   client.send(JSON.stringify({
     type:'thinking',
@@ -43,6 +49,7 @@ export async function runAgent(userId: string, projectId: string, conversationSt
     const llm = new ChatAnthropic({
     model: "claude-sonnet-4-5-20250929",
     temperature: 0,
+    maxTokens:20000
   });
 
 
@@ -81,7 +88,7 @@ export async function runAgent(userId: string, projectId: string, conversationSt
       //filepath guardrail
       secureFilePath(filePath);
 
-      // Normalize path inside sandbox
+      // normalizing path inside sandbox
       let fullPath: string;
       if (filePath.startsWith('/home/user/')) {
         fullPath = filePath;
@@ -91,76 +98,12 @@ export async function runAgent(userId: string, projectId: string, conversationSt
         fullPath = `/home/user/${filePath}`;
       }
 
-      // Ensure directory exists
       const dir = fullPath.slice(0, fullPath.lastIndexOf('/'));
       await sandbox.commands.run(`mkdir -p ${dir}`);
 
       // Write the file
       await sandbox.files.write(fullPath, content);
       console.log(`File written: ${fullPath}`);
-
-      // Skip validation for non-code files
-      const needsValidation =
-        filePath.endsWith('.js') ||
-        filePath.endsWith('.jsx')
-
-      if (!needsValidation) {
-        // Tell FE to refresh preview
-        client?.send(JSON.stringify({ type: "refresh_preview" }));
-        return `File created successfully at ${filePath}`;
-      }
-
-      try {
-        console.log(`Validating via Vite module transform: ${filePath}`);
-
-         client.send(JSON.stringify({
-          type:'validating',
-          content:"Validating...."}))
-
-        // let vite warm
-        await new Promise((r) => setTimeout(r, 300));
-
-        const host = sandbox.getHost(5173);
-        const previewUrl = `https://${host}`;
-        const moduleUrl = `${previewUrl}/${filePath}?t=${Date.now()}`;
-
-        console.log("Fetching module:", moduleUrl);
-
-        const res = await fetch(moduleUrl);
-        const body = await res.text();
-
-        const errorDetected =
-          !res.ok ||
-          body.includes('[plugin:vite') ||
-          body.includes('SyntaxError') ||
-          body.includes('Unexpected token') ||
-          body.includes('Transform failed') ||
-          body.includes('Module not found') ||
-          body.includes('ReferenceError') ||
-          body.includes('TypeError');
-
-        if (errorDetected) {
-          console.log(`Vite failed to compile ${filePath}`);
-
-          return `
-          VITE COMPILATION ERROR for: ${filePath} 
-          ${body.slice(0, 1000)}
-          __VALIDATION_FAILED__`;
-        }
-
-        console.log(`Vite successfully compiled ${filePath}`);
-
-      } catch (err: any) {
-        console.log("Validation failed:", err);
-        
-        return `
-        VITE VALIDATION FAILED
-        ${err?.message || err}
-        __VALIDATION_FAILED__`;
-      }
-
-      // Tell fe to reload iframe
-      client?.send(JSON.stringify({ type: "refresh_preview" }));
 
       return `File created successfully at ${filePath}`;
     },
@@ -202,7 +145,6 @@ export async function runAgent(userId: string, projectId: string, conversationSt
   //abstracting the tools name
   const toolsByName = {
     [createFile.name]: createFile,
-    // [serveStaticProject.name]:serveStaticProject,
     [runShellCommand.name]: runShellCommand
     };
   const tools = Object.values(toolsByName)
@@ -247,40 +189,36 @@ export async function runAgent(userId: string, projectId: string, conversationSt
   }
 
   const result: ToolMessage[] = [];
-  let validationFailures = state.validationFailures ?? 0;
+  // let validationFailures = state.validationFailures ?? 0;
+  const createdJsxFiles:string[]=[];
+  const createdCssFiles: string[] =[]
+  const existingFiles = state.createdFiles || [];
 
   for (const toolCall of lastMessage.tool_calls ?? []) {
     const tool = toolsByName[toolCall.name];
     
     try {
-      // Validate tool call before execution
-      // if (toolCall.name === 'create_file') {
-      //   if (!toolCall.args?.filePath) {
-      //     throw new Error("create_file called without filePath argument");
-      //   }
-      //   if (!toolCall.args?.content) {
-      //     throw new Error(`create_file called for ${toolCall.args.filePath} without content argument`);
-      //   }
-      // }
-
       const observation = await tool?.invoke(toolCall);
       result.push(observation!);
-      
-      client?.send(JSON.stringify(observation?.content));
 
-      client.send(JSON.stringify({
-      type:'building',
-      content:"Building...."}))
+      //tracking files for validataion
+      if(toolCall.name==='create_file' && toolCall.args?.filePath){
+        const filePath = toolCall.args.filePath;
+        // const needsValidation = filePath.endsWith('.jsx')
 
-      const contentStr = typeof observation?.content === 'string'
-        ? observation.content
-        : JSON.stringify(observation?.content);
-
-      if (contentStr.includes("__VALIDATION_FAILED__")) {
-        validationFailures++;
-        console.log(`Validation failure #${validationFailures}`);
-       
+        if(filePath.endsWith('.jsx')||filePath.endsWith('.js')){
+          createdJsxFiles.push(filePath)
+        }else if(filePath.endsWith('.css')){
+          createdCssFiles.push(filePath);
+        }
+        
       }
+        //  client?.send(JSON.stringify(observation?.content));
+
+        client.send(JSON.stringify({
+          type: 'building',
+          content: "Building...."
+        }));
 
     } catch (error: any) {
       // Catch schema validation errors
@@ -315,14 +253,152 @@ export async function runAgent(userId: string, projectId: string, conversationSt
       });
 
       result.push(errorMessage);
-      validationFailures++;
+      // validationFailures++;
     }
   }
-  
+  let filesToValidate:string[]=[];
+
+  if(createdJsxFiles.length>0){
+    const hasCss = createdCssFiles.length>0;
+
+    if(hasCss){
+      filesToValidate= createdJsxFiles
+    }else{
+      const hasCssFromBefore = existingFiles.some(f=>f.endsWith('.css'))
+
+      if(hasCssFromBefore){
+        console.log("JSX created, css exists from before")
+        filesToValidate= createdJsxFiles
+      }else{
+        console.log("Jsx created but not css yet")
+        filesToValidate=[]
+      }
+    }
+  }else if(createdCssFiles.length >0){
+    const jsxFromBefore = existingFiles.filter(f=> f.endsWith('.jsx')||f.endsWith('.js'));
+
+    if(jsxFromBefore.length > 0){
+      console.log("CSS CREATED, Validating jsx from before");
+      filesToValidate=jsxFromBefore
+    }else{
+      console.log("CSS CREATED, BUT NO JSX YET");
+      filesToValidate=[];
+    }
+  }
+
+  const allFiles =[
+    ...existingFiles,
+    ...createdJsxFiles,
+    ...createdCssFiles
+  ]
+
+  const uniqueFiles = Array.from(new Set(allFiles));
+
+  console.log('------------------Tool Node Summary-------------------------');
+  console.log('JSX files (this batch):', createdJsxFiles);
+  console.log('CSS files (this batch):', createdCssFiles);
+  console.log('Existing files (from state):', existingFiles);
+  console.log('All files (cumulative):', uniqueFiles);
+  console.log('Files to validate:', filesToValidate);
+
   return {
     messages: result,
-    validationFailures
+    // validationFailures
+    pendingValidations: filesToValidate.length > 0 ? filesToValidate : undefined,
+    createdFiles:uniqueFiles
   };
+  
+  }
+
+  //new node to validate all files here, after all files are created
+  async function validationNode(state:State) {
+    const filesToValidate = state.pendingValidations || [];
+
+    if(filesToValidate.length === 0){
+      console.log("No files to validate");
+      return {
+        messages:[],
+        pendingValidations:[]
+      }
+    }
+
+    client.send(JSON.stringify({
+      type:'validating',
+      content:'validating...'
+    }))
+
+    await new Promise(r=>setTimeout(r, 1000));
+
+    const validationResults: ToolMessage[]=[];
+    let hasErrors = false
+
+    for(const filePath of filesToValidate){
+      try {
+        const host = sandbox.getHost(5173);
+        const previewUrl = `https://${host}`;
+        const moduleUrl = `${previewUrl}/${filePath}?t=${Date.now()}`;
+
+        console.log(`Fetching: ${moduleUrl}`);
+        const res = await fetch(moduleUrl);
+        const body = await res.text();
+
+        const errorDetected =
+          !res.ok ||
+          body.includes('[plugin:vite') ||
+          body.includes('SyntaxError') ||
+          body.includes('Unexpected token') ||
+          body.includes('Transform failed') ||
+          body.includes('Module not found') ||
+          body.includes('ReferenceError') ||
+          body.includes('TypeError');
+
+        if (errorDetected) {
+          console.log(`Validation FAILED: ${filePath}`);
+          hasErrors = true;
+          
+          validationResults.push(new ToolMessage({
+            tool_call_id: `validation_${filePath}`,
+            content: `VALIDATION ERROR in ${filePath}:\n${body.slice(0, 800)}\n\n__VALIDATION_FAILED__`,
+            name: 'validation'
+          }));
+        } else {
+          console.log(`Validation PASSED: ${filePath}`);
+        }
+
+      } catch (err: any) {
+        console.log(`Validation error for ${filePath}:`, err.message);
+        hasErrors = true;
+        
+        validationResults.push(new ToolMessage({
+          tool_call_id: `validation_${filePath}`,
+          content: `VALIDATION FAILED for ${filePath}: ${err.message}\n__VALIDATION_FAILED__`,
+          name: 'validation'
+        }));
+      }
+
+    }
+      const updates: any = {
+        pendingValidations:[]
+      }
+
+      if (hasErrors) {
+      updates.validationFailures = (state.validationFailures || 0) + 1;
+      updates.messages = validationResults;
+    } else {
+      // All files valid - refresh preview
+      console.log("All files validated successfully");
+      console.log("Waiting for vite to bundle app");
+      await new Promise(r=>setTimeout(r, 3000));
+      client.send(JSON.stringify({ type: "refresh_preview" }));
+      client.send(JSON.stringify({
+        type: 'building',
+        content: "Building..."
+      }));
+      updates.messages = [];
+    }
+
+    return updates;
+  
   }
 
   //adding a node to give the final response to the user
@@ -374,6 +450,12 @@ export async function runAgent(userId: string, projectId: string, conversationSt
       return "finalNode";
     }
 
+    //CHEcking the pending validaitons
+    if(state.pendingValidations && state.pendingValidations.length > 0){
+      console.log("Pending validations detected, routing to validation");
+      return "validationNode"
+    }
+
     // Check for recent validation error in last two messages
     const recentToolMessages = state.messages
       .slice(-2)
@@ -399,7 +481,6 @@ export async function runAgent(userId: string, projectId: string, conversationSt
       return "toolNode";
     }
 
-    // Check if content is meaningful
     const text =
       typeof last.content === "string"
         ? last.content.trim()
@@ -426,34 +507,17 @@ export async function runAgent(userId: string, projectId: string, conversationSt
   const agent = new StateGraph(MessageState)
     .addNode("llmCall", llmCall)
     .addNode("toolNode", toolNode)
+    .addNode("validationNode", validationNode)
     .addNode("finalNode", finalNode)
     .addEdge(START, "llmCall")
-    .addConditionalEdges("llmCall", shouldContinue, ["toolNode", "llmCall", "finalNode", END])
+    .addConditionalEdges("llmCall", shouldContinue, ["toolNode","validationNode", "llmCall", "finalNode", END])
     .addEdge("toolNode", "llmCall")
+    .addEdge("validationNode", "llmCall")
     .addEdge("finalNode", END)
     .compile();
 
   // Run agent
   const result = await agent.invoke(conversationState)as State;
-  //Check what files were actually created
-  // try {
-  //   console.log('\n CHECKING FILES IN SANDBOX:');
-
-  //   // Check root
-  //   const rootFiles = await sandbox.files.list('/');
-  //   console.log('Root files:', rootFiles?.map(f => f.name));
-
-  //   // Check /home/user
-  //   try {
-  //     const projectFiles = await sandbox.files.list('/home/user');
-  //     console.log(' /home/user files:', projectFiles?.map(f => f.name));
-  //   } catch (err) {
-  //     console.log(' /home/user does NOT exist');
-  //   }
-
-  // } catch (error) {
-  //   console.log(' Error checking files:', error);
-  // }
 
   console.log("this is the result.messages::", result.messages);
   console.log("Number of llm calls", result.llmCalls);
@@ -540,15 +604,6 @@ export async function runAgent(userId: string, projectId: string, conversationSt
 
   // Persist conversation history
   conversationState.llmCalls = result.llmCalls;
-
-  //lets send the human msg as well to the streams
-  // const humanMessages = result.messages.filter((m: BaseMessage) => m.getType() === 'human');
-  // for (const human of humanMessages) {
-  //   client?.send(JSON.stringify({
-  //     type: 'human',
-  //     content: human.content
-  //   }))
-  // }
 
   //Get ALL AI messages with tool calls (not just first one)
   const allToolCalls = result.messages

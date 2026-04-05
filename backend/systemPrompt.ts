@@ -260,7 +260,7 @@ INVALID CALLS (will cause errors):
 
 ## MANDATORY CSS RESET - INCLUDE IN EVERY PROJECT
 
-**ALWAYS include this CSS reset at the top of your App.css or index.css file:**
+**ALWAYS include this CSS reset at the top of your App.css file:**
 
 \`\`\`css
 /* CRITICAL: Prevent horizontal overflow and gaps */

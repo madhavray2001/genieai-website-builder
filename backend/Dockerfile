@@ -4,6 +4,11 @@ FROM oven/bun:latest
 #work inside the app dir in the container
 WORKDIR /app
 
+# install curl for healthcheck
+RUN apt-get update \
+ && apt-get install -y curl \
+ && rm -rf /var/lib/apt/lists/*
+
 #copy the package files
 COPY package.json bun.lock ./
 
