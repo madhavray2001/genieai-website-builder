@@ -9,7 +9,7 @@ const AiMsgBox = ({message}:{message:Message}) => {
 
   return (
     <div className='flex justify-start mb-4 ml-2'>
-      <div className='max-w-[70%] p-4 bg-[#121212] border border-neutral-700 rounded-lg break-words text-neutral-100'>
+      <div className='max-w-[90%] p-4 break-words text-neutral-100'>
         <ReactMarkdown
           components={{
             h1: ({node, ...props}) => <h1 className="text-2xl font-bold mb-3 text-white" {...props} />,

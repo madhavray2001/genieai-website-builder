@@ -110,7 +110,7 @@ export default function HomePage() {
                     </p>
 
                     <div className="w-full max-w-2xl">
-                      <PromptInput initialPrompt={''} type={'primary'} ref={promptInputRef}/>
+                      <PromptInput initialPrompt={''} type={'primary'} ref={promptInputRef} onSubmitStart={()=>setLoading(true)}/>
                     </div>
 
                     <p className="text-sm text-neutral-500 font-inter">Start with a simple idea. We'll take it from there.</p>

@@ -15,11 +15,12 @@ interface PromptInputProps {
   initialPrompt?: string
   prompt?: string
   params?: any
+  onSubmitStart:() => void
 }
 
 export const PromptInput = forwardRef<{ focus: () => void }, PromptInputProps>(
   (props, ref) => {
-  const { type } = props
+  const { type, onSubmitStart } = props
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   useImperativeHandle(ref, ()=>({
@@ -73,6 +74,8 @@ export const PromptInput = forwardRef<{ focus: () => void }, PromptInputProps>(
       }
 
       console.log("reached primary page for userId", userId);
+      //calling the parents callback here before fetching with be
+      onSubmitStart?.();
       setSubmitting(true)
 
       try {
@@ -84,7 +87,12 @@ export const PromptInput = forwardRef<{ focus: () => void }, PromptInputProps>(
           body: JSON.stringify({ initialPrompt: value, userId })
         })
 
+        if(!res.ok){
+          throw Error(``);
+        }
+
         if(res.status === 429){
+         
           setShowRateLimit(true)
           return;
         }
