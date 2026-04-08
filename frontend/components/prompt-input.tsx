@@ -15,7 +15,7 @@ interface PromptInputProps {
   initialPrompt?: string
   prompt?: string
   params?: any
-  onSubmitStart:() => void
+  onSubmitStart?:() => void
 }
 
 export const PromptInput = forwardRef<{ focus: () => void }, PromptInputProps>(
