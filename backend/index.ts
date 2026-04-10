@@ -9,7 +9,10 @@ import cors from "cors";
 
 const app = express();
 app.use(express.json())
-// app.use(cors());
+
+if (process.env.NODE_ENV === 'development') {
+  app.use(cors());
+}
 app.use('/api', projectRoute);
 app.use('/api', userRoute)
 app.use('/api', promptRoute)
@@ -31,8 +34,8 @@ wss.on('connection', (ws: WebSocket, req) => {
   // console.log("users data with socket id:", users)
 })
 
-app.get('/health',(req, res)=>{
-  res.status(200).json({status:'healthy', timestamp:new Date().toISOString()})
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'healthy', timestamp: new Date().toISOString() })
 })
 
 server.listen(5000, () => {

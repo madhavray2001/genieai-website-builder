@@ -9,22 +9,22 @@ datasource db {
 }
 
 model User {
-  id        String    @id @default(uuid())  
-  email  String    @unique
-  name  String?
-  image String?
+  id        String    @id @default(uuid())
+  email     String    @unique
+  name      String?
+  image     String?
   projects  Project[]
   createdAt DateTime  @default(now())
   updatedAt DateTime  @default(now())
-} 
+}
 
 model Project {
   id                  String                @id
-  title               String? @default("default title from db")
+  title               String?               @default("default title from db")
   initialPrompt       String
-  enhancedPrompt      String @default("Not generated")
-  userId              String 
-  user                User                  @relation(fields: [userId], references: [id])
+  enhancedPrompt      String                @default("Not generated")
+  userId              String
+  user                User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
   conversationHistory ConversationHistory[]
   createdAt           DateTime              @default(now())
   updatedAt           DateTime              @default(now())
@@ -33,7 +33,7 @@ model Project {
 model ConversationHistory {
   id        String           @id @default(uuid())
   projectId String
-  project   Project          @relation(fields: [projectId], references: [id])
+  project   Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
   type      ConversationType
   from      MessageFrom
   contents  String

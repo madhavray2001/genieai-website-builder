@@ -112,7 +112,7 @@ Ensure you have the following installed and configured:
 
 1. **Clone the repository**
 ```bash
-git clone https://github.com/SamadeshPoudel/GenieAI-website-builder
+git clone https://github.com/madhavray2001/GenieAI-website-builder
 cd GenieAI-website-builder
 ```
 
@@ -291,10 +291,6 @@ The included Docker configuration supports production deployment with optimized 
 ## License
 
 This project is licensed under the MIT License.
-
-## Links
-
-- [GenieAI] (https://genieai.samadesh.com/)
 
 ---
 

@@ -22,23 +22,24 @@ const MessageState = z.object({
   summary: z.string().optional(),
   summariserLLMCalls: z.number().optional(),
   validationFailures: z.number().optional(),
-  pendingValidations:z.array(z.string()).optional(),
+  pendingValidations: z.array(z.string()).optional(),
   createdFiles: z.array(z.string()).optional()
 })
 
 type State = z.infer<typeof MessageState>;
 
-export async function runAgent(userId: string, projectId: string, conversationState: State, client: WebSocket, sandbox: Sandbox):Promise<void> {
+export async function runAgent(userId: string, projectId: string, conversationState: State, client: WebSocket, sandbox: Sandbox): Promise<void> {
 
-  if(!conversationState.createdFiles){
-    conversationState.createdFiles=[]
+  if (!conversationState.createdFiles) {
+    conversationState.createdFiles = []
   }
 
   client.send(JSON.stringify({
-    type:'thinking',
-    content:"Thinking...."}))
+    type: 'thinking',
+    content: "Thinking...."
+  }))
 
-    console.log("Reached code generator llm")
+  console.log("Reached code generator llm")
 
 
   // const llm = new ChatGoogleGenerativeAI({
@@ -46,10 +47,10 @@ export async function runAgent(userId: string, projectId: string, conversationSt
   //   temperature: 1
   // })
 
-    const llm = new ChatAnthropic({
+  const llm = new ChatAnthropic({
     model: "claude-sonnet-4-5-20250929",
     temperature: 0,
-    maxTokens:20000
+    maxTokens: 20000
   });
 
 
@@ -66,19 +67,19 @@ export async function runAgent(userId: string, projectId: string, conversationSt
   //defining the tools
   const CreateFileSchema = z.object({
     filePath: z.string().describe("Absolute or relative path to the file"),
-    content:z
-    .string()
-    .min(1, "content cannot be empty - you MUST provide the actual file content")
-    .describe("Complete text content to write inside the file. This is REQUIRED and cannot be empty.")
+    content: z
+      .string()
+      .min(1, "content cannot be empty - you MUST provide the actual file content")
+      .describe("Complete text content to write inside the file. This is REQUIRED and cannot be empty.")
   })
 
   const createFile = tool(
     async (input) => {
-      
+
       const { content, filePath } = CreateFileSchema.parse(input);
 
       //adding explicit validation cause mf llm doesnt obey
-      if(!content || typeof content !== 'string'){
+      if (!content || typeof content !== 'string') {
         return `ERROR: content is required for ${filePath}. You MUST provide the complete file content. Do NOT create empty files.`
       }
       if (!filePath || filePath.trim() === '') {
@@ -146,7 +147,7 @@ export async function runAgent(userId: string, projectId: string, conversationSt
   const toolsByName = {
     [createFile.name]: createFile,
     [runShellCommand.name]: runShellCommand
-    };
+  };
   const tools = Object.values(toolsByName)
   const llmWithTools = llm.bindTools(tools);
 
@@ -171,7 +172,8 @@ export async function runAgent(userId: string, projectId: string, conversationSt
       : systemPrompt;
 
     msgs.push(new SystemMessage(systemContent), ...state.messages);
-
+    // console.log("reached the llm invoke and waiting for 30 seconds")
+    // await new Promise(r => setTimeout(r, 30000)); //simulating the model call 
     const response = await llmWithTools.invoke(msgs);
 
     return {
@@ -182,37 +184,37 @@ export async function runAgent(userId: string, projectId: string, conversationSt
 
   //define the tool node, finding the last message of llm if theres any tool call or no need to call the tool
   async function toolNode(state: State) {
-  const lastMessage = state.messages.at(-1);
+    const lastMessage = state.messages.at(-1);
 
-  if (lastMessage == null || !isAIMessage(lastMessage)) {
-    return { messages: [] };
-  }
+    if (lastMessage == null || !isAIMessage(lastMessage)) {
+      return { messages: [] };
+    }
 
-  const result: ToolMessage[] = [];
-  // let validationFailures = state.validationFailures ?? 0;
-  const createdJsxFiles:string[]=[];
-  const createdCssFiles: string[] =[]
-  const existingFiles = state.createdFiles || [];
+    const result: ToolMessage[] = [];
+    // let validationFailures = state.validationFailures ?? 0;
+    const createdJsxFiles: string[] = [];
+    const createdCssFiles: string[] = []
+    const existingFiles = state.createdFiles || [];
 
-  for (const toolCall of lastMessage.tool_calls ?? []) {
-    const tool = toolsByName[toolCall.name];
-    
-    try {
-      const observation = await tool?.invoke(toolCall);
-      result.push(observation!);
+    for (const toolCall of lastMessage.tool_calls ?? []) {
+      const tool = toolsByName[toolCall.name];
 
-      //tracking files for validataion
-      if(toolCall.name==='create_file' && toolCall.args?.filePath){
-        const filePath = toolCall.args.filePath;
-        // const needsValidation = filePath.endsWith('.jsx')
+      try {
+        const observation = await tool?.invoke(toolCall);
+        result.push(observation!);
 
-        if(filePath.endsWith('.jsx')||filePath.endsWith('.js')){
-          createdJsxFiles.push(filePath)
-        }else if(filePath.endsWith('.css')){
-          createdCssFiles.push(filePath);
+        //tracking files for validataion
+        if (toolCall.name === 'create_file' && toolCall.args?.filePath) {
+          const filePath = toolCall.args.filePath;
+          // const needsValidation = filePath.endsWith('.jsx')
+
+          if (filePath.endsWith('.jsx') || filePath.endsWith('.js')) {
+            createdJsxFiles.push(filePath)
+          } else if (filePath.endsWith('.css')) {
+            createdCssFiles.push(filePath);
+          }
+
         }
-        
-      }
         //  client?.send(JSON.stringify(observation?.content));
 
         client.send(JSON.stringify({
@@ -220,13 +222,13 @@ export async function runAgent(userId: string, projectId: string, conversationSt
           content: "Building...."
         }));
 
-    } catch (error: any) {
-      // Catch schema validation errors
-      console.error(`Tool execution error for ${toolCall.name}:`, error.message);
-      
-      const errorMessage = new ToolMessage({
-        tool_call_id: toolCall.id as string,
-        content: `
+      } catch (error: any) {
+        // Catch schema validation errors
+        console.error(`Tool execution error for ${toolCall.name}:`, error.message);
+
+        const errorMessage = new ToolMessage({
+          tool_call_id: toolCall.id as string,
+          content: `
       ERROR: Tool call failed!
       Tool: ${toolCall.name}
       Error: ${error.message}
@@ -249,90 +251,90 @@ export async function runAgent(userId: string, projectId: string, conversationSt
 
       __VALIDATION_FAILED__
         `,
-        name: toolCall.name
-      });
+          name: toolCall.name
+        });
 
-      result.push(errorMessage);
-      // validationFailures++;
-    }
-  }
-  let filesToValidate:string[]=[];
-
-  if(createdJsxFiles.length>0){
-    const hasCss = createdCssFiles.length>0;
-
-    if(hasCss){
-      filesToValidate= createdJsxFiles
-    }else{
-      const hasCssFromBefore = existingFiles.some(f=>f.endsWith('.css'))
-
-      if(hasCssFromBefore){
-        console.log("JSX created, css exists from before")
-        filesToValidate= createdJsxFiles
-      }else{
-        console.log("Jsx created but not css yet")
-        filesToValidate=[]
+        result.push(errorMessage);
+        // validationFailures++;
       }
     }
-  }else if(createdCssFiles.length >0){
-    const jsxFromBefore = existingFiles.filter(f=> f.endsWith('.jsx')||f.endsWith('.js'));
+    let filesToValidate: string[] = [];
 
-    if(jsxFromBefore.length > 0){
-      console.log("CSS CREATED, Validating jsx from before");
-      filesToValidate=jsxFromBefore
-    }else{
-      console.log("CSS CREATED, BUT NO JSX YET");
-      filesToValidate=[];
+    if (createdJsxFiles.length > 0) {
+      const hasCss = createdCssFiles.length > 0;
+
+      if (hasCss) {
+        filesToValidate = createdJsxFiles
+      } else {
+        const hasCssFromBefore = existingFiles.some(f => f.endsWith('.css'))
+
+        if (hasCssFromBefore) {
+          console.log("JSX created, css exists from before")
+          filesToValidate = createdJsxFiles
+        } else {
+          console.log("Jsx created but not css yet")
+          filesToValidate = []
+        }
+      }
+    } else if (createdCssFiles.length > 0) {
+      const jsxFromBefore = existingFiles.filter(f => f.endsWith('.jsx') || f.endsWith('.js'));
+
+      if (jsxFromBefore.length > 0) {
+        console.log("CSS CREATED, Validating jsx from before");
+        filesToValidate = jsxFromBefore
+      } else {
+        console.log("CSS CREATED, BUT NO JSX YET");
+        filesToValidate = [];
+      }
     }
-  }
 
-  const allFiles =[
-    ...existingFiles,
-    ...createdJsxFiles,
-    ...createdCssFiles
-  ]
+    const allFiles = [
+      ...existingFiles,
+      ...createdJsxFiles,
+      ...createdCssFiles
+    ]
 
-  const uniqueFiles = Array.from(new Set(allFiles));
+    const uniqueFiles = Array.from(new Set(allFiles));
 
-  console.log('------------------Tool Node Summary-------------------------');
-  console.log('JSX files (this batch):', createdJsxFiles);
-  console.log('CSS files (this batch):', createdCssFiles);
-  console.log('Existing files (from state):', existingFiles);
-  console.log('All files (cumulative):', uniqueFiles);
-  console.log('Files to validate:', filesToValidate);
+    console.log('------------------Tool Node Summary-------------------------');
+    console.log('JSX files (this batch):', createdJsxFiles);
+    console.log('CSS files (this batch):', createdCssFiles);
+    console.log('Existing files (from state):', existingFiles);
+    console.log('All files (cumulative):', uniqueFiles);
+    console.log('Files to validate:', filesToValidate);
 
-  return {
-    messages: result,
-    // validationFailures
-    pendingValidations: filesToValidate.length > 0 ? filesToValidate : undefined,
-    createdFiles:uniqueFiles
-  };
-  
+    return {
+      messages: result,
+      // validationFailures
+      pendingValidations: filesToValidate.length > 0 ? filesToValidate : undefined,
+      createdFiles: uniqueFiles
+    };
+
   }
 
   //new node to validate all files here, after all files are created
-  async function validationNode(state:State) {
+  async function validationNode(state: State) {
     const filesToValidate = state.pendingValidations || [];
 
-    if(filesToValidate.length === 0){
+    if (filesToValidate.length === 0) {
       console.log("No files to validate");
       return {
-        messages:[],
-        pendingValidations:[]
+        messages: [],
+        pendingValidations: []
       }
     }
 
     client.send(JSON.stringify({
-      type:'validating',
-      content:'validating...'
+      type: 'validating',
+      content: 'validating...'
     }))
 
-    await new Promise(r=>setTimeout(r, 1000));
+    await new Promise(r => setTimeout(r, 1000));
 
-    const validationResults: ToolMessage[]=[];
+    const validationResults: ToolMessage[] = [];
     let hasErrors = false
 
-    for(const filePath of filesToValidate){
+    for (const filePath of filesToValidate) {
       try {
         const host = sandbox.getHost(5173);
         const previewUrl = `https://${host}`;
@@ -355,7 +357,7 @@ export async function runAgent(userId: string, projectId: string, conversationSt
         if (errorDetected) {
           console.log(`Validation FAILED: ${filePath}`);
           hasErrors = true;
-          
+
           validationResults.push(new ToolMessage({
             tool_call_id: `validation_${filePath}`,
             content: `VALIDATION ERROR in ${filePath}:\n${body.slice(0, 800)}\n\n__VALIDATION_FAILED__`,
@@ -368,7 +370,7 @@ export async function runAgent(userId: string, projectId: string, conversationSt
       } catch (err: any) {
         console.log(`Validation error for ${filePath}:`, err.message);
         hasErrors = true;
-        
+
         validationResults.push(new ToolMessage({
           tool_call_id: `validation_${filePath}`,
           content: `VALIDATION FAILED for ${filePath}: ${err.message}\n__VALIDATION_FAILED__`,
@@ -377,18 +379,18 @@ export async function runAgent(userId: string, projectId: string, conversationSt
       }
 
     }
-      const updates: any = {
-        pendingValidations:[]
-      }
+    const updates: any = {
+      pendingValidations: []
+    }
 
-      if (hasErrors) {
+    if (hasErrors) {
       updates.validationFailures = (state.validationFailures || 0) + 1;
       updates.messages = validationResults;
     } else {
       // All files valid - refresh preview
       console.log("All files validated successfully");
       console.log("Waiting for vite to bundle app");
-      await new Promise(r=>setTimeout(r, 3000));
+      await new Promise(r => setTimeout(r, 3000));
       client.send(JSON.stringify({ type: "refresh_preview" }));
       client.send(JSON.stringify({
         type: 'building',
@@ -398,16 +400,17 @@ export async function runAgent(userId: string, projectId: string, conversationSt
     }
 
     return updates;
-  
+
   }
 
   //adding a node to give the final response to the user
   async function finalNode(state: State) {
 
-          //sending the delivering stream
-        client.send(JSON.stringify({
-        type:'delivering',
-        content:"Delivering...."}))
+    //sending the delivering stream
+    client.send(JSON.stringify({
+      type: 'delivering',
+      content: "Delivering...."
+    }))
 
     //checking if we need to show the validation failure msg to the user 
     if ((state.validationFailures ?? 0) >= 3) {
@@ -451,7 +454,7 @@ export async function runAgent(userId: string, projectId: string, conversationSt
     }
 
     //CHEcking the pending validaitons
-    if(state.pendingValidations && state.pendingValidations.length > 0){
+    if (state.pendingValidations && state.pendingValidations.length > 0) {
       console.log("Pending validations detected, routing to validation");
       return "validationNode"
     }
@@ -491,9 +494,9 @@ export async function runAgent(userId: string, projectId: string, conversationSt
     const isMeaningful = text.length > 0;
 
     // iff coding agent gave meaningful response, skip final node
-    if ( isMeaningful && text.length > 50) {
-    console.log("Coding agent gave good response, skipping finalNode");
-    return END;
+    if (isMeaningful && text.length > 50) {
+      console.log("Coding agent gave good response, skipping finalNode");
+      return END;
     }
 
     if (!isMeaningful && (state.llmCalls ?? 0) < 4) {
@@ -510,18 +513,18 @@ export async function runAgent(userId: string, projectId: string, conversationSt
     .addNode("validationNode", validationNode)
     .addNode("finalNode", finalNode)
     .addEdge(START, "llmCall")
-    .addConditionalEdges("llmCall", shouldContinue, ["toolNode","validationNode", "llmCall", "finalNode", END])
+    .addConditionalEdges("llmCall", shouldContinue, ["toolNode", "validationNode", "llmCall", "finalNode", END])
     .addEdge("toolNode", "llmCall")
     .addEdge("validationNode", "llmCall")
     .addEdge("finalNode", END)
     .compile();
 
   // Run agent
-  const result = await agent.invoke(conversationState)as State;
+  const result = await agent.invoke(conversationState) as State;
 
   console.log("this is the result.messages::", result.messages);
   console.log("Number of llm calls", result.llmCalls);
-  
+
   const allMessages = result.messages;
   console.log("Length of all messages is:", allMessages.length)
 
@@ -537,7 +540,7 @@ export async function runAgent(userId: string, projectId: string, conversationSt
           : Array.isArray(m.content) && m.content.some(c => c.text?.trim().length > 0)
       )
     );
-    console.log("finalAiResponse without parsing:", finalAIResponse)
+  console.log("finalAiResponse without parsing:", finalAIResponse)
   //as finalAiResponse is sometime giving string as well as object. making sure it works on all models i use; some gives the array like content:[{}]
   const aiResponseText = typeof finalAIResponse?.content === 'string'
     ? finalAIResponse.content
@@ -545,7 +548,7 @@ export async function runAgent(userId: string, projectId: string, conversationSt
       ? finalAIResponse.content.map(c => c.text || '').join('\n')
       : '';
 
-  console.log("final ai response text",aiResponseText);
+  console.log("final ai response text", aiResponseText);
 
   await prisma.conversationHistory.create({
     data: {
@@ -584,7 +587,7 @@ export async function runAgent(userId: string, projectId: string, conversationSt
       })
       .join('\n---\n');
 
-      console.log("Reached summariser LLM")
+    console.log("Reached summariser LLM")
 
     const summary = await summariserLLM.invoke([
       new SystemMessage(SUMMARY_AGENT_SYSTEM_PROMPT),

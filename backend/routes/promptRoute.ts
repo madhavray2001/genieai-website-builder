@@ -5,7 +5,7 @@ import { HumanMessage, type BaseMessage } from "@langchain/core/messages";
 import { MessagesZodMeta } from "@langchain/langgraph";
 import { registry } from "@langchain/langgraph/zod";
 import * as z from "zod";
-import {users} from "../index";
+import { users } from "../index";
 import { runAgent } from "../runAgent";
 const router = express.Router()
 const prisma = new PrismaClient();
@@ -24,44 +24,46 @@ const globalStore: GlobalState = new Map();
 
 router.post("/prompt", async (req: express.Request, res: express.Response) => {
 
-  const {prompt,enhancedPrompt ,userId } = req.body;
+  const { prompt, enhancedPrompt, userId } = req.body;
   const projectId = req.query.projectId as string;
   console.log("prompt by user:", prompt);
-//   console.log("enhanced prompt by an agent", enhancedPrompt);
+  //   console.log("simulating 10s delay to avoid llm call")
+  //     await new Promise(r=>setTimeout(r, 10000));
+  //   console.log("enhanced prompt by an agent", enhancedPrompt);
 
   try {
-    
+
     const project = await prisma.project.findUnique({
-      where:{
-        id:projectId,
+      where: {
+        id: projectId,
       },
-      select:{
-        userId:true
+      select: {
+        userId: true
       }
     })
 
-    if(!project){
-      return res.status(403).json({msg:"Project not found"})
+    if (!project) {
+      return res.status(403).json({ msg: "Project not found" })
     }
 
-    if(project.userId !== userId){
-      return res.status(403).json({msg:"Access denied"})
+    if (project.userId !== userId) {
+      return res.status(403).json({ msg: "Access denied" })
     }
 
     const client: WebSocket | undefined = users.get(userId)!;
 
-    if(!client){
-      return res.status(400).json({msg:"ws not found. Refresh page"})
+    if (!client) {
+      return res.status(400).json({ msg: "ws not found. Refresh page" })
     }
     //sending only the new message via websocket
     client.send(JSON.stringify({
-    type:'human',
-    content:prompt
+      type: 'human',
+      content: prompt
     }))
 
     const sandbox = await getSandbox(projectId, userId);
     const host = sandbox.getHost(5173);
-    
+
     if (!globalStore.has(userId)) {
       // console.log("pushing the userId in the globalstore")
       const projectState: ProjectState = new Map();
@@ -69,27 +71,27 @@ router.post("/prompt", async (req: express.Request, res: express.Response) => {
         messages: [],
         llmCalls: 0,
       });
-      
+
       globalStore.set(userId, projectState);
       // console.log("checking globalstore", globalStore);
     }
-    
+
     let projectState = globalStore.get(userId);
-    
+
     //initialising new project if the project doesnt exist
-    if(!projectState?.has(projectId)){
+    if (!projectState?.has(projectId)) {
       console.log(`Initialising new project ${projectId} for user ${userId}`);
-      projectState?.set(projectId,{
-        messages:[],
-        llmCalls:0
+      projectState?.set(projectId, {
+        messages: [],
+        llmCalls: 0
       })
     }
-    
+
     let conversationState: ConversationState = projectState?.get(projectId)!;
     conversationState.messages.push(new HumanMessage(enhancedPrompt))
     // console.log("checking global store with conversationState", globalStore)
     // console.log("checking the conversation state", conversationState);
-    
+
 
     await prisma.conversationHistory.create({
       data: {
@@ -130,35 +132,35 @@ router.post('/conversation', async (req: express.Request, res: express.Response)
     }
 
     const project = await prisma.project.findUnique({
-      where:{id:projectId},
-      select:{userId:true}
+      where: { id: projectId },
+      select: { userId: true }
     })
 
-    if(!project){
-      return res.status(404).json({msg:"Project not found"})
+    if (!project) {
+      return res.status(404).json({ msg: "Project not found" })
     }
 
-    if(project.userId !== userId){
-      return res.status(403).json({msg:"Access denied!"})
+    if (project.userId !== userId) {
+      return res.status(403).json({ msg: "Access denied!" })
     }
     const sandbox = await getSandbox(projectId, userId);
 
     const countConversation = await prisma.conversationHistory.count({
-      where:{projectId}
+      where: { projectId }
     })
-    const client: WebSocket|undefined = users.get(userId)!;
+    const client: WebSocket | undefined = users.get(userId)!;
 
-    if(!client){
+    if (!client) {
       return res.status(400).json({
-        msg:"WS not found, refresh the page"
+        msg: "WS not found, refresh the page"
       })
     }
 
-    
-    if(countConversation >= 4){
+
+    if (countConversation >= 4) {
       return res.status(429).json({
-        msg:"COnversation limit reached!",
-        current:countConversation
+        msg: "COnversation limit reached!",
+        current: countConversation
       })
     }
     await prisma.conversationHistory.create({
@@ -169,7 +171,7 @@ router.post('/conversation', async (req: express.Request, res: express.Response)
         contents: prompt
       }
     })
-    
+
     // Initialize globalStore if not exists (after server restart)
     if (!globalStore.has(userId)) {
       console.log(` Initializing globalStore for user ${userId} (server restart)`);
@@ -180,9 +182,9 @@ router.post('/conversation', async (req: express.Request, res: express.Response)
       });
       globalStore.set(userId, projectState);
     }
-    
+
     let projectState = globalStore.get(userId);
-    
+
     // Initialize project if not exists (after server restart)
     if (!projectState?.has(projectId)) {
       console.log(` Initializing project ${projectId} (server restart)`);
@@ -193,16 +195,16 @@ router.post('/conversation', async (req: express.Request, res: express.Response)
     }
     let conversationState: ConversationState = projectState?.get(projectId)!;
     conversationState.messages.push(new HumanMessage(prompt))
-    
+
     //sending only the new message via websocket
     client.send(JSON.stringify({
-      type:'human',
-      content:prompt
+      type: 'human',
+      content: prompt
     }))
-    
+
     // console.log("conversation state to the llm with the follow up message:", conversationState)
-    
-    
+
+
     const data = await runAgent(userId, projectId, conversationState, client, sandbox);
     // JSON.stringify(data.)
 

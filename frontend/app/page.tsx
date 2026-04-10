@@ -15,14 +15,14 @@ export default function HomePage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([])
-  const promptInputRef = useRef<{focus:()=>void}>(null)
+  const promptInputRef = useRef<{ focus: () => void }>(null)
   const [loading, setLoading] = useState(false);
 
-  
-  const focusPromptInput=()=>{
+
+  const focusPromptInput = () => {
     promptInputRef.current?.focus()
   }
-  
+
   useEffect(() => {
     const handlePendingProject = async () => {
       if (status === 'authenticated' && session?.user?.id) {
@@ -51,7 +51,7 @@ export default function HomePage() {
         }
       }
     }
-    
+
     const fetchProjects = async () => {
       if (status === 'authenticated' && session?.user?.id) {
         try {
@@ -64,85 +64,92 @@ export default function HomePage() {
         }
       }
     }
-    
+
     handlePendingProject();
     fetchProjects();
   }, [status, session, router])
-  
-  if(loading){
-    return(
-      <SpinnerCustom />
-    )
-  }
+
+  // if (loading) {
+  //   return (
+  //     <SpinnerCustom />
+  //   )
+  // }
+
   return (
     <PromptFocusContext.Provider value={focusPromptInput}>
-    <div className="h-screen overflow-hidden">
-      <div
-        className="relative overflow-x-hidden bg-black text-foreground h-full"
-        style={
-          {
-            "--background": "oklch(0 0 0)",
-            "--foreground": "oklch(1 0 0)",
-          } as React.CSSProperties
-        }
-      >
-        
-        {status === 'authenticated' ? (
-          <SidebarProvider>
-            <div className="flex h-screen w-full relative z-10">
-              <AppSidebar projects={projects} />
-              
-              <main className="flex-1 grid grid-rows-[auto_auto_1fr] overflow-hidden">
-                <Navbar />
-                
-                <div className="px-6 pt-3">
-                  <SidebarTrigger className="bg-neutral-800 hover:bg-white p-2 rounded-md cursor-pointer transition-colors" />
-                </div>
-                
-                <section className="flex items-center justify-center px-6 overflow-auto">
-                  <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-8 text-center py-8">
-                    <h1 className="font-inter text-balance text-xl font-black tracking-[-0.03em] md:text-4xl lg:text-5xl lg:font-semibold text-white">
-                      Ask and it shall be given to you
-                    </h1>
+      {/* Overlay spinner - shows on top but doesn't unmount children */}
+      {loading && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80">
+          <SpinnerCustom />
+        </div>
+      )}
+      <div className="h-screen overflow-hidden">
+        <div
+          className="relative overflow-x-hidden bg-black text-foreground h-full"
+          style={
+            {
+              "--background": "oklch(0 0 0)",
+              "--foreground": "oklch(1 0 0)",
+            } as React.CSSProperties
+          }
+        >
 
-                    <p className="text-pretty text-base text-neutral-400 md:text-lg font-inter leading-tight tracking-[-0.03em]">
-                      Describe your vision. Watch Genie shape it into something real — beautifully, effortlessly.
-                    </p>
+          {status === 'authenticated' ? (
+            <SidebarProvider>
+              <div className="flex h-screen w-full relative z-10">
+                <AppSidebar projects={projects} />
 
-                    <div className="w-full max-w-2xl">
-                      <PromptInput initialPrompt={''} type={'primary'} ref={promptInputRef} onSubmitStart={()=>setLoading(true)}/>
-                    </div>
+                <main className="flex-1 grid grid-rows-[auto_auto_1fr] overflow-hidden">
+                  <Navbar />
 
-                    <p className="text-sm text-neutral-500 font-inter">Start with a simple idea. We'll take it from there.</p>
+                  <div className="px-6 pt-3">
+                    <SidebarTrigger className="bg-neutral-800 hover:bg-white p-2 rounded-md cursor-pointer transition-colors" />
                   </div>
-                </section>
-              </main>
-            </div>
-          </SidebarProvider>
-        ) : (
-          <main className="grid grid-rows-[auto_1fr] h-screen relative z-10">
-            <Navbar />
-            <section className="flex items-center justify-center px-6">
-              <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-8 text-center">
-                <h1 className="font-inter text-balance text-xl font-black tracking-[-0.03em] md:text-4xl lg:text-5xl lg:font-semibold text-white">
-                  Ask and it shall be given to you
-                </h1>
 
-                <p className="text-pretty text-base text-neutral-400 md:text-lg font-inter leading-tight tracking-[-0.03em]">
-                  Describe your vision. Watch Genie shape it into something real — beautifully, effortlessly.
-                </p>
+                  <section className="flex items-center justify-center px-6 overflow-auto">
+                    <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-8 text-center py-8">
+                      <h1 className="font-inter text-balance text-xl font-black tracking-[-0.03em] md:text-4xl lg:text-5xl lg:font-semibold text-white">
+                        Ask and it shall be given to you
+                      </h1>
 
-                <div className="w-full max-w-2xl">
-                  <PromptInput initialPrompt={''} type={'primary'} onSubmitStart={()=> setLoading(true)}/>
-                </div>
+                      <p className="text-pretty text-base text-neutral-400 md:text-lg font-inter leading-tight tracking-[-0.03em]">
+                        Describe your vision. Watch Genie shape it into something real — beautifully, effortlessly.
+                      </p>
 
-                <p className="text-sm text-neutral-500 font-inter">Start with a simple idea. We'll take it from there.</p>
+                      <div className="w-full max-w-2xl">
+                        <PromptInput initialPrompt={''} type={'primary'} ref={promptInputRef} onSubmitStart={() => setLoading(true)} onSubmitEnd={() => setLoading(false)} />
+                      </div>
+
+                      <p className="text-sm text-neutral-500 font-inter">Start with a simple idea. We'll take it from there.</p>
+                    </div>
+                  </section>
+                </main>
               </div>
-            </section>
-          </main>
-        )}
+            </SidebarProvider>
+          ) : (
+            <main className="grid grid-rows-[auto_1fr] h-screen relative z-10">
+              <Navbar />
+              <section className="flex items-center justify-center px-6">
+                <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-8 text-center">
+                  <h1 className="font-inter text-balance text-xl font-black tracking-[-0.03em] md:text-4xl lg:text-5xl lg:font-semibold text-white">
+                    Ask and it shall be given to you
+                  </h1>
+
+                  <p className="text-pretty text-base text-neutral-400 md:text-lg font-inter leading-tight tracking-[-0.03em]">
+                    Describe your vision. Watch Genie shape it into something real — beautifully, effortlessly.
+                  </p>
+
+                  <div className="w-full max-w-2xl">
+                    <PromptInput initialPrompt={''} type={'primary'} onSubmitStart={() => setLoading(true)} />
+                  </div>
+
+                  <p className="text-sm text-neutral-500 font-inter">Start with a simple idea. We'll take it from there.</p>
+                </div>
+              </section>
+            </main>
+          )}
+        </div>
       </div>
-    </div>
     </PromptFocusContext.Provider>
   )
 }
