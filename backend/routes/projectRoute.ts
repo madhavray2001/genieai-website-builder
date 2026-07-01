@@ -1,20 +1,38 @@
 import express from "express";
 import { PrismaClient } from "../generated/prisma";
-import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
+import { ChatOpenAI } from "@langchain/openai";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { getSandbox } from "../sandboxManager";
 import { PROMPT_ENHANCER_SYSTEM_PROMPT, TITLE_GENERATOR_SYSTEM_PROMPT } from "../systemPrompt";
 const router = express.Router();
 const prisma = new PrismaClient();
 
-const titleGeneratorLLM = new ChatGoogleGenerativeAI({
-    model: "gemini-2.5-flash",
-    temperature: 0
+const titleGeneratorLLM = new ChatOpenAI({
+    model: "google/gemini-2.5-flash",
+    temperature: 0,
+    timeout: 60000,
+    configuration: {
+        baseURL: "https://openrouter.ai/api/v1",
+        apiKey: process.env.OPENROUTER_API_KEY,
+        defaultHeaders: {
+            "HTTP-Referer": "https://genieai.dev",
+            "X-Title": "GenieAI Website Builder",
+        },
+    },
 })
 
-const promptEnhancerLLM = new ChatGoogleGenerativeAI({
-    model: "gemini-2.5-flash-lite",
-    temperature: 0
+const promptEnhancerLLM = new ChatOpenAI({
+    model: "google/gemini-2.5-flash",
+    temperature: 0,
+    timeout: 60000,
+    configuration: {
+        baseURL: "https://openrouter.ai/api/v1",
+        apiKey: process.env.OPENROUTER_API_KEY,
+        defaultHeaders: {
+            "HTTP-Referer": "https://genieai.dev",
+            "X-Title": "GenieAI Website Builder",
+        },
+    },
 })
 
 router.post('/project', async (req: express.Request, res: express.Response) => {
@@ -34,21 +52,23 @@ router.post('/project', async (req: express.Request, res: express.Response) => {
         const projectCount = await prisma.project.count({
             where: { userId }
         })
-        if (projectCount >= 1) {
+        if (projectCount >= 10) {
             return res.status(429).json({
                 msg: "Project limit reached",
                 current: projectCount
             })
         }
 
-        const enhancedInitialPrompt = await promptEnhancerLLM.invoke([
+        console.log("=== Project creation endpoint ===");
+    console.log("Enhancing prompt...");
+    const enhancedInitialPrompt = await promptEnhancerLLM.invoke([
             new SystemMessage(PROMPT_ENHANCER_SYSTEM_PROMPT),
             new HumanMessage(initialPrompt)
         ])
 
         const enhancedPrompt = enhancedInitialPrompt.content as string;
+        console.log("Enhanced prompt, now generating title...");
 
-        console.log("Reached title generator llm")
         const aiGivenTitle = await titleGeneratorLLM.invoke([
             new SystemMessage(TITLE_GENERATOR_SYSTEM_PROMPT),
             new HumanMessage(initialPrompt)
@@ -73,7 +93,10 @@ router.post('/project', async (req: express.Request, res: express.Response) => {
         })
 
     } catch (error) {
-        console.error("Internal server error", error);
+        console.error("Internal server error in /api/project", error);
+        return res.status(500).json({
+            msg: error instanceof Error ? error.message : "Server error creating project"
+        })
     }
 })
 

@@ -1,4 +1,4 @@
-import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
+import { ChatOpenAI } from "@langchain/openai";
 import { tool } from "@langchain/core/tools";
 import * as z from "zod";
 import { StateGraph, START, END } from "@langchain/langgraph";
@@ -11,7 +11,6 @@ import Sandbox from "@e2b/code-interpreter";
 import 'dotenv/config'
 import { FINAL_AI_RESPONSE_SYSTEM_PROMPT, SUMMARY_AGENT_SYSTEM_PROMPT, systemPrompt } from "./systemPrompt";
 import { PrismaClient } from "./generated/prisma";
-import { ChatAnthropic } from "@langchain/anthropic";
 import { secureCommand, secureFilePath } from "./guardrails";
 
 const prisma = new PrismaClient();
@@ -42,27 +41,52 @@ export async function runAgent(userId: string, projectId: string, conversationSt
   console.log("Reached code generator llm")
 
 
-  // const llm = new ChatGoogleGenerativeAI({
-  //   model: "gemini-2.5-flash-lite",
-  //   temperature: 1
-  // })
-
-  const llm = new ChatAnthropic({
-    model: "claude-sonnet-4-5-20250929",
+  // Code-gen LLM: Anthropic Claude via OpenRouter — reliable tool calls.
+  // Gemini Flash kept emitting code as markdown instead of calling create_file.
+  const llm = new ChatOpenAI({
+    model: "anthropic/claude-sonnet-4.5",
     temperature: 0,
-    maxTokens: 20000
+    maxTokens: 16000,
+    timeout: 180000,
+    streaming: true,
+    configuration: {
+      baseURL: "https://openrouter.ai/api/v1",
+      apiKey: process.env.OPENROUTER_API_KEY,
+      defaultHeaders: {
+        "HTTP-Referer": "https://genieai.dev",
+        "X-Title": "GenieAI Website Builder",
+      },
+    },
   });
 
+  const summariserLLM = new ChatOpenAI({
+    model: "google/gemini-2.5-flash",
+    temperature: 0,
+    timeout: 60000,
+    configuration: {
+      baseURL: "https://openrouter.ai/api/v1",
+      apiKey: process.env.OPENROUTER_API_KEY,
+      defaultHeaders: {
+        "HTTP-Referer": "https://genieai.dev",
+        "X-Title": "GenieAI Website Builder",
+      },
+    },
+  });
 
-  const summariserLLM = new ChatGoogleGenerativeAI({
-    model: "gemini-2.5-flash-lite",
-    temperature: 0
-  })
-
-  const finalNodeLLM = new ChatGoogleGenerativeAI({
-    model: "gemini-2.5-flash",
-    temperature: 0
-  })
+  const finalNodeLLM = new ChatOpenAI({
+    model: "google/gemini-2.5-flash",
+    temperature: 0,
+    timeout: 60000,
+    streaming: true,
+    configuration: {
+      baseURL: "https://openrouter.ai/api/v1",
+      apiKey: process.env.OPENROUTER_API_KEY,
+      defaultHeaders: {
+        "HTTP-Referer": "https://genieai.dev",
+        "X-Title": "GenieAI Website Builder",
+      },
+    },
+  });
 
   //defining the tools
   const CreateFileSchema = z.object({
@@ -153,6 +177,7 @@ export async function runAgent(userId: string, projectId: string, conversationSt
 
   //defining the model node
   async function llmCall(state: State) {
+    console.log(`[llmCall] Starting LLM call #${(state.llmCalls ?? 0) + 1}, messages: ${state.messages.length}`);
     const msgs: BaseMessage[] = [];
     //if the summary exist then add the summary as well to the system prompt
     const systemContent = state.summary
@@ -172,9 +197,9 @@ export async function runAgent(userId: string, projectId: string, conversationSt
       : systemPrompt;
 
     msgs.push(new SystemMessage(systemContent), ...state.messages);
-    // console.log("reached the llm invoke and waiting for 30 seconds")
-    // await new Promise(r => setTimeout(r, 30000)); //simulating the model call 
+    const startTime = Date.now();
     const response = await llmWithTools.invoke(msgs);
+    console.log(`[llmCall] Completed in ${(Date.now() - startTime) / 1000}s, tool_calls: ${response.tool_calls?.length || 0}`);
 
     return {
       messages: [response],
@@ -314,6 +339,7 @@ export async function runAgent(userId: string, projectId: string, conversationSt
 
   //new node to validate all files here, after all files are created
   async function validationNode(state: State) {
+    console.log(`[validationNode] Starting, files: ${state.pendingValidations?.join(", ")}`);
     const filesToValidate = state.pendingValidations || [];
 
     if (filesToValidate.length === 0) {
@@ -405,6 +431,7 @@ export async function runAgent(userId: string, projectId: string, conversationSt
 
   //adding a node to give the final response to the user
   async function finalNode(state: State) {
+    console.log(`[finalNode] Starting, validationFailures: ${state.validationFailures}`);
 
     //sending the delivering stream
     client.send(JSON.stringify({
@@ -445,6 +472,7 @@ export async function runAgent(userId: string, projectId: string, conversationSt
 
   async function shouldContinue(state: State) {
     const last = state.messages.at(-1);
+    console.log(`[shouldContinue] messages: ${state.messages.length}, llmCalls: ${state.llmCalls}, validationFailures: ${state.validationFailures}, pendingValidations: ${state.pendingValidations?.length || 0}`);
 
     if (!last || !isAIMessage(last)) return END;
 
@@ -519,8 +547,59 @@ export async function runAgent(userId: string, projectId: string, conversationSt
     .addEdge("finalNode", END)
     .compile();
 
-  // Run agent
-  const result = await agent.invoke(conversationState) as State;
+  // Run agent — stream token-by-token so the user sees the assistant's
+  // response as it's generated instead of all at once at the end.
+  // streamMode "messages" yields LLM token chunks from every node;
+  // "values" yields the full graph state after each step (last = final result).
+  let result: State | undefined;
+  try {
+    const stream = await agent.stream(conversationState, {
+      streamMode: ["messages", "values"],
+    });
+
+    for await (const [mode, chunk] of stream as AsyncIterable<[string, any]>) {
+      if (mode === "values") {
+        // keep the latest full state; the final emission is the result
+        result = chunk as State;
+        continue;
+      }
+
+      // mode === "messages": chunk is [messageChunk, metadata]
+      const [msgChunk, metadata] = chunk as [any, any];
+      const node = metadata?.langgraph_node;
+
+      // Only stream the dedicated final-response node (Gemini Flash).
+      // We intentionally do NOT stream the code-gen (llmCall) node: it emits a
+      // preamble, then spends a long time writing files (tool-call args we don't
+      // stream), which left the preamble stranded on screen. Streaming just the
+      // final summary gives a clean, uninterrupted token-by-token reply.
+      if (node !== "finalNode") continue;
+
+      const text =
+        typeof msgChunk?.content === "string"
+          ? msgChunk.content
+          : Array.isArray(msgChunk?.content)
+            ? msgChunk.content.map((c: any) => c?.text || "").join("")
+            : "";
+
+      if (text) {
+        client.send(JSON.stringify({ type: "ai_chunk", content: text }));
+      }
+    }
+  } catch (err: any) {
+    console.error("Agent invocation failed:", err);
+    try {
+      client?.send(JSON.stringify({
+        type: "error",
+        content: err?.message || "Agent failed during generation"
+      }));
+    } catch {}
+    throw err;
+  }
+
+  if (!result) {
+    throw new Error("Agent stream ended without producing a final state");
+  }
 
   console.log("this is the result.messages::", result.messages);
   console.log("Number of llm calls", result.llmCalls);

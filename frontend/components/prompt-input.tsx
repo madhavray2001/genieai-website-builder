@@ -97,11 +97,19 @@ export const PromptInput = forwardRef<{ focus: () => void }, PromptInputProps>(
             setShowRateLimit(true)
             return;
           }
-          const data = await res.json();
+          if (!res.ok) {
+            const errBody = await res.json().catch(() => ({}));
+            const msg = errBody?.msg || `Failed to create project (HTTP ${res.status})`;
+            console.error('Project create failed:', msg);
+            alert(msg);
+            return;
+          }
+          await res.json();
           router.push(`/project/${id}`)
 
         } catch (error) {
           console.log('Error saving the initial req to the db', error);
+          alert('Could not reach backend. Make sure it is running on ' + process.env.NEXT_PUBLIC_BACKEND_URL);
         } finally {
           setSubmitting(false)
           onSubmitEnd?.();

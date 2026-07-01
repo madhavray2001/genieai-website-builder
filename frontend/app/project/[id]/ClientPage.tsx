@@ -68,6 +68,7 @@ export default function ClientPage ({ params, searchParams }: {
     const [iframeLoading, setIframeLoading] = useState(true);
     const [streams, setStreams] = useState<Stream[]>([])
     const [isStreaming, setIsStreaming] = useState(true)
+    const [streamingText, setStreamingText] = useState<string>('')
     const isLoadingFromDBRef = useRef(false);
     const [activeView, setActiveView] = useState<'chat' | 'preview'>('chat');
 
@@ -107,6 +108,12 @@ export default function ClientPage ({ params, searchParams }: {
 
         async function initializeProject() {
             try {
+                // Clear streaming state left over from another project's generation
+                // so its flash reply doesn't bleed into this project's chat.
+                setStreamingText('');
+                setStreams([]);
+                setIsStreaming(false);
+
                 const currentProjectState = sessionStorage.getItem(`project_${id}`);
 
                 if (currentProjectState) {
@@ -128,7 +135,11 @@ export default function ClientPage ({ params, searchParams }: {
                     isLoadingFromDBRef.current = true;
                     const data = JSON.parse(loadedProject);
                     console.log("loading projects from db>>session>page", data.conversation)
-                    setprojectUrl(data.projectUrl);
+                    // The sandbox host is shared across a user's projects, so the URL
+                    // is identical for every project. Without a unique query the iframe
+                    // never reloads and keeps showing the previously-opened project's app.
+                    // Cache-bust to force a reload of the freshly-loaded files.
+                    setprojectUrl(data.projectUrl ? `${data.projectUrl}?t=${Date.now()}` : data.projectUrl);
                     setMessages(data.conversation);
                     if (data.files && data.files.length > 0) {
                         console.log("Building file tree from", data.files.length, "files");
@@ -160,14 +171,25 @@ export default function ClientPage ({ params, searchParams }: {
                             'Content-Type': 'application/json'
                         },
                         body: JSON.stringify({ prompt: initialPromptFromDB, enhancedPrompt:enhancedPromptFromDB ,userId })
-                        //prompt:enhancedPromptFromDB, usersPrompt:initialPromptFromDB
                     })
+                    if (!message.ok) {
+                        const errBody = await message.json().catch(() => ({}));
+                        const msg = errBody?.msg || `Generation failed (HTTP ${message.status})`;
+                        console.error('/api/prompt failed:', msg);
+                        setIsStreaming(false);
+                        setStreams([]);
+                        setMessages(prev => [...prev, { type: 'ai', content: `⚠️ ${msg}. Please try again.` }]);
+                        return;
+                    }
                     const data2: PromptResponse = await message.json();
                     setprojectUrl(data2.projectUrl)
                     console.log("data2 by hitting /prompt api:", data2)
                 }
             } catch (error) {
-                console.log("Internal server error", error)
+                console.log("Internal server error", error);
+                setIsStreaming(false);
+                setStreams([]);
+                setMessages(prev => [...prev, { type: 'ai', content: '⚠️ Could not reach the backend. Is it running on port 5000?' }]);
             }
         }
 
@@ -186,9 +208,18 @@ export default function ClientPage ({ params, searchParams }: {
                     }]);
                     break;
 
-                case "ai":
+                case "ai_chunk":
+                    // Live tokens from the assistant — append to the in-progress bubble.
                     setIsStreaming(false);
                     setStreams([]);
+                    setStreamingText(prev => prev + (data.content ?? ''));
+                    break;
+
+                case "ai":
+                    // Authoritative final message — commit it and clear the live buffer.
+                    setIsStreaming(false);
+                    setStreams([]);
+                    setStreamingText('');
                     setMessages(prev => [...prev, {
                         type: 'ai',
                         content: data.content
@@ -211,24 +242,28 @@ export default function ClientPage ({ params, searchParams }: {
                     console.log("Refreshing iframe preview...");
 
                     const iframe = document.querySelector("iframe");
-                    if (!iframe){
-                        console.log("No iframe found")
-                       return; 
-                    } 
-
-                    const current = iframe.src;
-
-                    if (!current.includes(":5173")) {
-                        console.log("Not refreshing — iframe not ready");
+                    if (!iframe) {
+                        console.log("No iframe found");
                         return;
                     }
 
-                    iframe.src = current.split("?")[0] + "?t=" + Date.now();
+                    const current = iframe.src;
+                    // E2B preview URLs look like https://5173-<sandbox>.e2b.dev
+                    // — port lives in the subdomain, not as ":5173".
+                    if (!current || current === "about:blank") {
+                        console.log("Iframe not ready (no src) — skipping refresh");
+                        return;
+                    }
+
+                    const base = current.split("?")[0];
+                    iframe.src = base + "?t=" + Date.now();
+                    console.log("Iframe refreshed to:", iframe.src);
                     break;
                 }
 
                 case "thinking":
                     setIsStreaming(true)
+                    setStreamingText('')
                     console.log("trying to implement thinking stream...")
                     setStreams(prev => [...prev, {
                         type: 'thinking',
@@ -237,6 +272,8 @@ export default function ClientPage ({ params, searchParams }: {
                     break;
 
                 case "building":
+                    setIsStreaming(true)
+                    setStreamingText('')
                     console.log("trying to implement building stream...")
                     setStreams(prev => [...prev, {
                         type: 'building',
@@ -245,6 +282,8 @@ export default function ClientPage ({ params, searchParams }: {
                     break;
 
                 case "validating":
+                    setIsStreaming(true)
+                    setStreamingText('')
                     console.log("trying to implement validating stream...")
                     setStreams(prev => [...prev, {
                         type: 'validating',
@@ -253,10 +292,22 @@ export default function ClientPage ({ params, searchParams }: {
                     break;
 
                 case "delivering":
+                    setIsStreaming(true)
+                    setStreamingText('')
                     console.log("trying to implement delivering stream...")
                     setStreams(prev => [...prev, {
                         type: 'delivering',
                         content: data.content
+                    }]);
+                    break;
+
+                case "error":
+                    console.error("Backend error:", data.content);
+                    setIsStreaming(false);
+                    setStreams([]);
+                    setMessages(prev => [...prev, {
+                        type: 'ai',
+                        content: `⚠️ Generation failed: ${data.content || "Unknown error"}. Please try again.`
                     }]);
                     break;
 
@@ -347,6 +398,11 @@ export default function ClientPage ({ params, searchParams }: {
                                 }
                                 return null
                             })}
+
+                            {/* Live assistant response streaming in token-by-token */}
+                            {streamingText && (
+                                <AiMsgBox message={{ type: 'ai', content: streamingText }} />
+                            )}
 
                             {isStreaming && (
                                 <div className='flex flex-col gap-3 text-sm text-neutral-400 ml-2'>

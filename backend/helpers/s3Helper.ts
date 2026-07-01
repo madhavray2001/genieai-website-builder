@@ -2,21 +2,37 @@ import { S3Client, PutObjectCommand, GetObjectCommand, HeadObjectCommand } from 
 import { Readable } from "stream";
 import Sandbox from "@e2b/code-interpreter";
 
-const s3Client = new S3Client({
-  region: process.env.AWS_REGION!,
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!
-  }
-});
+const BUCKET_NAME = process.env.S3_BUCKET_NAME;
+const S3_ENABLED =
+  !!BUCKET_NAME &&
+  BUCKET_NAME !== "your_s3_bucket_name_here" &&
+  !!process.env.AWS_ACCESS_KEY_ID &&
+  !!process.env.AWS_SECRET_ACCESS_KEY &&
+  process.env.AWS_ACCESS_KEY_ID !== "your_aws_access_key" &&
+  process.env.AWS_SECRET_ACCESS_KEY !== "your_aws_secret_key";
 
-const BUCKET_NAME = process.env.S3_BUCKET_NAME!;
+if (!S3_ENABLED) {
+  console.log("[s3Helper] S3 disabled — missing or placeholder AWS config. Project persistence skipped.");
+}
+
+const s3Client = S3_ENABLED
+  ? new S3Client({
+      region: process.env.AWS_REGION!,
+      credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!
+      }
+    })
+  : null;
 
 export async function saveProjectToS3(
   sandbox: Sandbox,
   userId: string,
   projectId: string
 ): Promise<boolean> {
+  if (!S3_ENABLED || !s3Client) {
+    return false;
+  }
   try {
     console.log(`Saving project ${projectId} to S3...`);
 
@@ -108,6 +124,9 @@ export async function loadProjectFromS3(
   userId: string,
   projectId: string
 ): Promise<boolean> {
+  if (!S3_ENABLED || !s3Client) {
+    return false;
+  }
   try {
     const s3Key = `${userId}/${projectId}/project.tar.gz`;
 

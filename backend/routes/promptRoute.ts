@@ -26,7 +26,9 @@ router.post("/prompt", async (req: express.Request, res: express.Response) => {
 
   const { prompt, enhancedPrompt, userId } = req.body;
   const projectId = req.query.projectId as string;
-  console.log("prompt by user:", prompt);
+  console.log("=== /prompt endpoint hit ===");
+  console.log("prompt by user:", prompt?.slice(0, 100));
+  console.log("userId:", userId, "projectId:", projectId);
   //   console.log("simulating 10s delay to avoid llm call")
   //     await new Promise(r=>setTimeout(r, 10000));
   //   console.log("enhanced prompt by an agent", enhancedPrompt);
@@ -115,7 +117,14 @@ router.post("/prompt", async (req: express.Request, res: express.Response) => {
   } catch (error) {
 
     console.error("Internal server error", error);
-    return res.status(500).json({ msg: "Shitty code!" })
+    const errClient = users.get(userId);
+    try {
+      errClient?.send(JSON.stringify({
+        type: "error",
+        content: error instanceof Error ? error.message : "Server error while generating"
+      }));
+    } catch {}
+    return res.status(500).json({ msg: error instanceof Error ? error.message : "Server error" })
   }
 })
 
@@ -216,6 +225,14 @@ router.post('/conversation', async (req: express.Request, res: express.Response)
     })
   } catch (error) {
     console.error("Internal server error", error);
+    const errClient = users.get(userId);
+    try {
+      errClient?.send(JSON.stringify({
+        type: "error",
+        content: error instanceof Error ? error.message : "Server error while generating"
+      }));
+    } catch {}
+    return res.status(500).json({ msg: error instanceof Error ? error.message : "Server error" })
   }
 })
 
