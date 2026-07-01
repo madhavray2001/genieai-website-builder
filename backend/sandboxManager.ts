@@ -26,20 +26,28 @@ async function isViteRunning(sandbox: Sandbox): Promise<boolean> {
 }
 
 async function startViteDevServer(sandbox: Sandbox): Promise<void> {
+  // Already serving on the port? Nothing to do.
+  if (await isViteRunning(sandbox)) {
+    console.log("Vite dev server already responding — no start needed");
+    return;
+  }
   console.log("Starting Vite dev server...");
+  // Do NOT guard with `pgrep -f vite`: the wrapping `sh -c "...vite..."` matches
+  // its own pattern, so pgrep always "finds vite" and npm run dev never starts.
+  // We already confirmed the port is closed via isViteRunning above, so just start.
   await sandbox.commands.run(
-    "cd /home/user && (pgrep -f 'vite' >/dev/null || nohup npm run dev > /tmp/vite.log 2>&1 &)",
+    "cd /home/user && nohup npm run dev > /tmp/vite.log 2>&1 &",
     { cwd: "/home/user", timeoutMs: 10000, background: true } as any
   );
-  // Poll for dev server up to ~15s
-  for (let i = 0; i < 15; i++) {
+  // Poll the actual port for up to ~40s (a cold `npm run dev` can be slow).
+  for (let i = 0; i < 40; i++) {
     await new Promise(r => setTimeout(r, 1000));
     if (await isViteRunning(sandbox)) {
       console.log(`Vite dev server is up (after ${i + 1}s)`);
       return;
     }
   }
-  console.warn("Vite dev server did not respond in 15s — continuing anyway");
+  console.warn("Vite dev server did not respond in 40s — continuing anyway");
 }
 
 // Restart Vite so it serves freshly-loaded files. The sandbox's file watcher
@@ -48,20 +56,24 @@ async function startViteDevServer(sandbox: Sandbox): Promise<void> {
 async function restartViteDevServer(sandbox: Sandbox): Promise<void> {
   console.log("Restarting Vite dev server to serve loaded project files...");
   try {
-    // The template's dev server can run as root, so a plain `pkill` (as `user`)
-    // fails with "Operation not permitted" and the restart silently no-ops —
-    // leaving Vite serving stale/template files. Escalate with sudo, and as a
-    // catch-all free port 5173 directly so a fresh server can rebind it.
+    // Kill the running dev server, then let startViteDevServer bring up a fresh
+    // one. Two footguns handled here:
+    //  1) `pkill -f vite` self-matches — the pkill command's own cmdline contains
+    //     "vite", so it kills its own wrapping shell ("signal: killed") and the
+    //     rest of the line never runs. The `[v]ite` character-class pattern matches
+    //     the real vite process but NOT the literal "[v]ite" in pkill's cmdline.
+    //  2) The template's server may run as root, so we try sudo first, then plain.
+    // Also free port 5173 directly as a catch-all. Trailing `true` => exit 0.
     await sandbox.commands.run(
-      "sudo pkill -9 -f vite 2>/dev/null || pkill -9 -f vite || true; " +
-      "sudo pkill -9 -f 'npm run dev' 2>/dev/null || pkill -9 -f 'npm run dev' || true; " +
-      "sudo fuser -k 5173/tcp 2>/dev/null || fuser -k 5173/tcp 2>/dev/null || true",
+      "sudo pkill -9 -f '[v]ite' 2>/dev/null; pkill -9 -f '[v]ite' 2>/dev/null; " +
+      "sudo pkill -9 -f '[n]pm run dev' 2>/dev/null; pkill -9 -f '[n]pm run dev' 2>/dev/null; " +
+      "sudo fuser -k 5173/tcp 2>/dev/null; fuser -k 5173/tcp 2>/dev/null; true",
       { cwd: "/home/user", timeoutMs: 12000 }
     );
   } catch (e) {
     console.warn("kill vite failed (continuing):", e);
   }
-  await new Promise(r => setTimeout(r, 1000));
+  await new Promise(r => setTimeout(r, 1500));
   await startViteDevServer(sandbox);
 }
 
