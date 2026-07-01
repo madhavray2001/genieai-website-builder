@@ -48,14 +48,20 @@ async function startViteDevServer(sandbox: Sandbox): Promise<void> {
 async function restartViteDevServer(sandbox: Sandbox): Promise<void> {
   console.log("Restarting Vite dev server to serve loaded project files...");
   try {
+    // The template's dev server can run as root, so a plain `pkill` (as `user`)
+    // fails with "Operation not permitted" and the restart silently no-ops —
+    // leaving Vite serving stale/template files. Escalate with sudo, and as a
+    // catch-all free port 5173 directly so a fresh server can rebind it.
     await sandbox.commands.run(
-      "pkill -f vite || true; pkill -f 'npm run dev' || true",
-      { cwd: "/home/user", timeoutMs: 8000 }
+      "sudo pkill -9 -f vite 2>/dev/null || pkill -9 -f vite || true; " +
+      "sudo pkill -9 -f 'npm run dev' 2>/dev/null || pkill -9 -f 'npm run dev' || true; " +
+      "sudo fuser -k 5173/tcp 2>/dev/null || fuser -k 5173/tcp 2>/dev/null || true",
+      { cwd: "/home/user", timeoutMs: 12000 }
     );
   } catch (e) {
-    console.warn("pkill vite failed (continuing):", e);
+    console.warn("kill vite failed (continuing):", e);
   }
-  await new Promise(r => setTimeout(r, 800));
+  await new Promise(r => setTimeout(r, 1000));
   await startViteDevServer(sandbox);
 }
 
@@ -159,17 +165,24 @@ export async function getSandbox(projectId: string, userId: string): Promise<San
   // Free-tier (1 concurrent sandbox): kill any orphaned sandbox from a previous
   // process before creating a new one, so we don't hit the concurrent limit.
   try {
-    const listed = await (Sandbox as any).list?.();
-    const running = listed?.sandboxes || listed || [];
+    // Sandbox.list() returns a paginator synchronously — call nextItems() to get
+    // the array. (The old code awaited the paginator itself and iterated it,
+    // which threw "{} is not iterable" and skipped cleanup entirely.)
+    const paginator = Sandbox.list();
+    const running = await paginator.nextItems();
+
+    // Never kill a sandbox we're still actively tracking (e.g. another user's).
+    const activeIds = new Set(
+      Array.from(activeSandboxes.values()).map(info => (info.sandbox as any).sandboxId)
+    );
+
     for (const s of running) {
-      const sid = s.sandboxId || s.sandboxID || s.id;
-      if (sid) {
-        console.log(`Killing orphan sandbox ${sid} to free concurrent slot`);
-        try { await (Sandbox as any).kill?.(sid); } catch (e) { console.warn("kill failed:", e); }
-      }
+      if (!s.sandboxId || activeIds.has(s.sandboxId)) continue;
+      console.log(`Killing orphan sandbox ${s.sandboxId} to free concurrent slot`);
+      try { await Sandbox.kill(s.sandboxId); } catch (e) { console.warn("kill failed:", e); }
     }
   } catch (e) {
-    console.warn("Sandbox.list not available or failed — skipping orphan cleanup", e);
+    console.warn("Orphan sandbox cleanup failed — continuing", e);
   }
 
   let sandbox: Sandbox;
