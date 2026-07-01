@@ -9,13 +9,19 @@ const authOptions: NextAuthOptions = {
     }),
   ],
   
+  // Explicit secret so the JWT encoder and the edge middleware's getToken()
+  // always use the same key.
+  secret: process.env.NEXTAUTH_SECRET,
+
   callbacks: {
-    async jwt({ token, account, user }) {
-      //oAuth tokens like accessToken & refresh token are used to do google api calls if needed on users behslf
-      if (account) {  
-        token.accessToken = account.access_token
-        token.refreshToken = account.refresh_token
-      }
+    async jwt({ token, user }) {
+      // NOTE: we deliberately do NOT persist Google's access_token/refresh_token
+      // in the JWT. They were unused, and storing them bloated the session JWT
+      // past ~4KB, so NextAuth split it into chunked cookies
+      // (__Secure-next-auth.session-token.0/.1). getToken() in the edge
+      // middleware then failed to reassemble them and returned null — which made
+      // withAuth treat authenticated users as logged-out and bounce them to
+      // "/?callbackUrl=/project/...". Keeping the token small avoids chunking.
       if(user){
          try {
           const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL!}/api/createUser`,{
@@ -37,15 +43,13 @@ const authOptions: NextAuthOptions = {
       }
       return token
     },
-    
+
     async session({ session, token }) {
-      console.log("from the session callbacks",JSON.stringify (session))
       session.user.id = token.userId as string;
-      session.accessToken = token.accessToken
       return session
     }
   },
-  
+
   session: {
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60,
