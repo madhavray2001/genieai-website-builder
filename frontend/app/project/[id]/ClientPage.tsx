@@ -95,13 +95,26 @@ export default function ClientPage ({ params, searchParams }: {
     }, [projectUrl, initialPrompt, messages, fileTree])
 
     useEffect(() => {
+        // Wait for the session to resolve. Otherwise userId is undefined and both
+        // the WS registration and /api/prompt (ownership check) fail with 403.
+        if (status !== 'authenticated' || !userId) return;
         if (hasFetched.current) return;
         hasFetched.current = true;
 
-        const ws = new WebSocket(`${process.env.NEXT_PUBLIC_WS_URL!}/?userId=${userId}`)
+        // Prefer the dedicated WS URL, but fall back to deriving it from the backend
+        // URL so a missing NEXT_PUBLIC_WS_URL env var (e.g. on Vercel) doesn't throw
+        // and abort generation entirely.
+        const wsBase = process.env.NEXT_PUBLIC_WS_URL
+            || process.env.NEXT_PUBLIC_BACKEND_URL?.replace(/^http/, 'ws');
 
-        ws.onopen = (e: Event) => {
-            console.log("websocket connection established")
+        let ws: WebSocket | null = null;
+        try {
+            ws = new WebSocket(`${wsBase}/?userId=${userId}`)
+            ws.onopen = (e: Event) => {
+                console.log("websocket connection established")
+            }
+        } catch (err) {
+            console.error("Failed to open WebSocket — check NEXT_PUBLIC_WS_URL / NEXT_PUBLIC_BACKEND_URL", err);
         }
 
         console.log("project id in the project page", id)
@@ -195,7 +208,7 @@ export default function ClientPage ({ params, searchParams }: {
 
         initializeProject();
 
-        ws.onmessage = (e: MessageEvent) => {
+        if (ws) ws.onmessage = (e: MessageEvent) => {
             const data = JSON.parse(e.data);
 
             console.log("Received data from ws:", data);
@@ -318,7 +331,7 @@ export default function ClientPage ({ params, searchParams }: {
             console.log("checking why the user msg is repeated:", messages);
         };
 
-    }, [id])
+    }, [id, status, userId])
 
     // Handle iframe load
     const handleIframeLoad = () => {

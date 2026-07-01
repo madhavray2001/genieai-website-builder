@@ -32,8 +32,15 @@ const ProjectList = ({id, title}:{id:string, title:string}) => {
         try {
             setLoading(true);
             const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL!}/api/project/load/${id}?userId=${session?.user.id}`);
+            if (!response.ok) {
+                const errBody = await response.json().catch(() => ({}));
+                throw new Error(errBody?.msg || `Load failed (HTTP ${response.status})`);
+            }
             const data = await response.json();
             console.log("Checking data fetched by loaded project api", data)
+            if (!data?.projectUrl || !Array.isArray(data?.conversation)) {
+                throw new Error("Backend returned no preview URL — the sandbox may have failed to start. Please try again.");
+            }
             //transforming the db format of msg to the fe format
             const transformedMessages: Message[] = data.conversation.map((dbMsg: DBMessage) => {
                 //mapping USER/ASSISTANT to human/ai
@@ -59,13 +66,12 @@ const ProjectList = ({id, title}:{id:string, title:string}) => {
                 files:data.files
             }));
 
-            router.push(`project/${id}`)
+            router.push(`/project/${id}`)
         } catch (error) {
-            console.log("Error loading project", error);
+            console.error("Error loading project", error);
+            alert(error instanceof Error ? error.message : "Could not load project. Please try again.");
+            setLoading(false);
         }
-        // finally{
-        //     setLoading(false);
-        // }
     }
     return (
         <div onClick={openProject} className='hover:bg-neutral-800 transition-colors p-2 rounded cursor-pointer'>
