@@ -1,6 +1,10 @@
 node_modules
 .env
+.env.*
 .git
+aws
+awscliv2.zip
+generated
 *.log
 .next
 dist
