@@ -21,8 +21,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "GenieAI- AI powered website builder",
-  description: "Transform your ideas into reality with GenieAI. AI-powered code generation and preview in real-time.",
+  title: "PromptForge AI - AI powered website builder",
+  description: "Transform your ideas into reality with PromptForge AI. AI-powered code generation and preview in real-time.",
 };
 
 export default function RootLayout({

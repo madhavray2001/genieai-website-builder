@@ -146,7 +146,7 @@ export const PromptInput = forwardRef<{ focus: () => void }, PromptInputProps>(
       <>
         <form onSubmit={onSubmit} className="w-full">
           <label htmlFor="user-prompt" className="sr-only">
-            Ask Genie to create...
+            Ask Forge to create...
           </label>
 
           <InputGroup
@@ -157,7 +157,7 @@ export const PromptInput = forwardRef<{ focus: () => void }, PromptInputProps>(
               id="user-prompt"
               value={value}
               onChange={(e) => setValue(e.target.value)}
-              placeholder={type == 'primary' ? "Ask Genie to create..." : "Ask a follow up..."}
+              placeholder={type == 'primary' ? "Ask Forge to create..." : "Ask a follow up..."}
               onKeyDown={handleKeyDown}
               aria-label="Prompt"
               disabled={submitting}

@@ -113,7 +113,7 @@ export default function HomePage() {
                       </h1>
 
                       <p className="text-pretty text-base text-neutral-400 md:text-lg font-inter leading-tight tracking-[-0.03em]">
-                        Describe your vision. Watch Genie shape it into something real — beautifully, effortlessly.
+                        Describe your vision. Watch Forge shape it into something real — beautifully, effortlessly.
                       </p>
 
                       <div className="w-full max-w-2xl">
@@ -136,7 +136,7 @@ export default function HomePage() {
                   </h1>
 
                   <p className="text-pretty text-base text-neutral-400 md:text-lg font-inter leading-tight tracking-[-0.03em]">
-                    Describe your vision. Watch Genie shape it into something real — beautifully, effortlessly.
+                    Describe your vision. Watch Forge shape it into something real — beautifully, effortlessly.
                   </p>
 
                   <div className="w-full max-w-2xl">

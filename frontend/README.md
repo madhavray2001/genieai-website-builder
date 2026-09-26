@@ -1,4 +1,4 @@
-# GenieAI Frontend
+# PromptForge AI Frontend
 
 An AI-powered website builder that generates complete websites from natural language prompts. Built with Next.js 15 and featuring real-time streaming responses.
 
@@ -234,4 +234,4 @@ Route protection and authentication handling:
 
 ## License
 
-Part of the GenieAI application suite - AI-powered website builder.
+Part of the PromptForge AI application suite - AI-powered website builder.

@@ -1,6 +1,6 @@
-# GenieAI Backend
+# PromptForge AI Backend
 
-The backend service for GenieAI, an AI-powered website builder that generates complete websites from natural language prompts. Built with Bun runtime and featuring AI agent orchestration, sandbox execution, and AWS S3 integration.
+The backend service for PromptForge AI, an AI-powered website builder that generates complete websites from natural language prompts. Built with Bun runtime and featuring AI agent orchestration, sandbox execution, and AWS S3 integration.
 
 ## Tech Stack
 
@@ -92,7 +92,7 @@ bunx prisma generate
 Create a `.env` file in the backend directory:
 
 ```env
-DATABASE_URL="postgresql://user:password@localhost:5432/genieai"
+DATABASE_URL="postgresql://user:password@localhost:5432/promptforgeai"
 E2B_API_KEY=your_e2b_api_key
 ANTHROPIC_API_KEY=your_anthropic_api_key
 GOOGLE_API_KEY=your_google_api_key
@@ -280,4 +280,4 @@ The backend implements comprehensive error handling:
 
 ## License
 
-Part of the GenieAI application suite - AI-powered website builder.
+Part of the PromptForge AI application suite - AI-powered website builder.

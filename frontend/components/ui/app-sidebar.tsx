@@ -34,7 +34,7 @@ export function AppSidebar({projects}:ProjectList) {
             G
           </div> */}
           <div className="flex flex-col">
-            <span className="text-sm font-semibold">Genie AI</span>
+            <span className="text-sm font-semibold">PromptForge AI</span>
           </div>
         </div>
       </SidebarHeader>

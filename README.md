@@ -1,10 +1,10 @@
-# GenieAI - AI-Powered Website Builder
+# PromptForge AI - AI-Powered Website Builder
 
-GenieAI is a full-stack web application that transforms natural language prompts into complete, functional websites. Built with modern technologies, it leverages AI agents, sandbox execution, and real-time streaming to deliver a seamless website generation experience.
+PromptForge AI is a full-stack web application that transforms natural language prompts into complete, functional websites. Built with modern technologies, it leverages AI agents, sandbox execution, and real-time streaming to deliver a seamless website generation experience.
 
 ## Overview
 
-GenieAI allows users to describe their desired website in plain English, and the AI generates a complete, production-ready website in react js. The application features real-time streaming feedback through multiple generation phases, secure code execution in isolated sandboxes, and persistent storage of generated projects.
+PromptForge AI allows users to describe their desired website in plain English, and the AI generates a complete, production-ready website in react js. The application features real-time streaming feedback through multiple generation phases, secure code execution in isolated sandboxes, and persistent storage of generated projects.
 
 ## Architecture
 
@@ -112,8 +112,8 @@ Ensure you have the following installed and configured:
 
 1. **Clone the repository**
 ```bash
-git clone https://github.com/madhavray2001/GenieAI-website-builder
-cd GenieAI-website-builder
+git clone https://github.com/madhavray2001/PromptForgeAI-website-builder
+cd PromptForgeAI-website-builder
 ```
 
 2. **Install dependencies**
@@ -141,7 +141,7 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 
 Backend `.env`:
 ```env
-DATABASE_URL="postgresql://user:password@localhost:5432/genieai"
+DATABASE_URL="postgresql://user:password@localhost:5432/promptforgeai"
 E2B_API_KEY=your_e2b_api_key
 ANTHROPIC_API_KEY=your_anthropic_api_key
 AWS_ACCESS_KEY_ID=your_aws_access_key
@@ -189,7 +189,7 @@ This will start:
 ## Project Structure
 
 ```
-GenieAI/
+PromptForge AI/
 ├── frontend/           # Next.js application
 │   ├── app/           # App Router pages and API routes
 │   ├── components/    # React components (UI, streaming, etc.)
