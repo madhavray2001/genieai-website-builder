@@ -15,8 +15,8 @@ const titleGeneratorLLM = new ChatOpenAI({
         baseURL: "https://openrouter.ai/api/v1",
         apiKey: process.env.OPENROUTER_API_KEY,
         defaultHeaders: {
-            "HTTP-Referer": "https://genieai.dev",
-            "X-Title": "GenieAI Website Builder",
+            "HTTP-Referer": "https://promptforgeai.dev",
+            "X-Title": "PromptForge AI Website Builder",
         },
     },
 })
@@ -29,8 +29,8 @@ const promptEnhancerLLM = new ChatOpenAI({
         baseURL: "https://openrouter.ai/api/v1",
         apiKey: process.env.OPENROUTER_API_KEY,
         defaultHeaders: {
-            "HTTP-Referer": "https://genieai.dev",
-            "X-Title": "GenieAI Website Builder",
+            "HTTP-Referer": "https://promptforgeai.dev",
+            "X-Title": "PromptForge AI Website Builder",
         },
     },
 })
